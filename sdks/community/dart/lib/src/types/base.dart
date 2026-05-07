@@ -71,6 +71,12 @@ class AGUIError implements Exception {
   String toString() => 'AGUIError: $message';
 }
 
+/// Error thrown when an agent does not implement `connect()`.
+class AGUIConnectNotImplementedError extends AGUIError {
+  const AGUIConnectNotImplementedError()
+    : super('connect() is not implemented for this agent.');
+}
+
 /// Utility for tolerant JSON decoding that ignores unknown fields.
 ///
 /// Provides helper methods for safely extracting and validating fields

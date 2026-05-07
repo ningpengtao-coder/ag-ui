@@ -7,9 +7,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../events/events.dart';
+import '../proto/proto.dart';
 
 /// The AG-UI protobuf media type constant.
-const String aguiMediaType = 'application/vnd.ag-ui.event+proto';
+const String aguiMediaType = agUiMediaType;
 
 /// Encoder for AG-UI events.
 ///
@@ -56,16 +57,22 @@ class EventEncoder {
 
   /// Encodes an event to binary format.
   ///
-  /// If protobuf is accepted, uses protobuf encoding (not yet implemented).
+  /// If protobuf is accepted, uses the AG-UI binary framing format.
   /// Otherwise, converts SSE string to bytes.
   Uint8List encodeBinary(BaseEvent event) {
     if (acceptsProtobuf) {
-      // TODO: Implement protobuf encoding when proto definitions are available
-      // For now, fall back to SSE as bytes
-      return _encodeSSEAsBytes(event);
+      return encodeProtobuf(event);
     } else {
       return _encodeSSEAsBytes(event);
     }
+  }
+
+  /// Encodes an event to AG-UI binary framing.
+  ///
+  /// The payload is prefixed with a 4-byte big-endian length header so the
+  /// stream parser can recover event boundaries incrementally.
+  Uint8List encodeProtobuf(BaseEvent event) {
+    return encodeProtoFrame(event);
   }
 
   /// Encodes an SSE event as bytes.

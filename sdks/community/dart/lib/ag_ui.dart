@@ -39,10 +39,25 @@
 library ag_ui;
 
 // Core types
+export 'src/capabilities.dart';
+export 'src/event_factories.dart';
 export 'src/types/types.dart';
 
 // Event types
 export 'src/events/events.dart';
+
+// Higher-level event utilities
+export 'src/apply/index.dart';
+export 'src/agent/index.dart';
+export 'src/compact/index.dart';
+export 'src/debug_logger.dart';
+export 'src/interrupts/index.dart';
+export 'src/legacy/convert.dart';
+export 'src/middleware/middleware.dart';
+export 'src/proto/proto.dart';
+export 'src/run/http_request.dart';
+export 'src/transform/index.dart';
+export 'src/verify/index.dart';
 
 // Encoder/Decoder
 export 'src/encoder/encoder.dart';

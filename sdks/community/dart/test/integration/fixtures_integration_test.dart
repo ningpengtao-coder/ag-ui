@@ -214,14 +214,17 @@ void main() {
         final customEvent = decodedEvents
             .whereType<CustomEvent>()
             .first;
+        final customValue = customEvent.value as Map<String, dynamic>;
         expect(customEvent.name, equals('user_feedback'));
-        expect(customEvent.value['rating'], equals(5));
+        expect(customValue['rating'], equals(5));
         
         final rawEvent = decodedEvents
             .whereType<RawEvent>()
             .first;
-        expect(rawEvent.event['customType'], equals('metrics'));
-        expect(rawEvent.event['data']['latency'], equals(123));
+        final rawPayload = rawEvent.event as Map<String, dynamic>;
+        final rawData = rawPayload['data'] as Map<String, dynamic>;
+        expect(rawPayload['customType'], equals('metrics'));
+        expect(rawData['latency'], equals(123));
       });
       
       test('processes concurrent messages', () {

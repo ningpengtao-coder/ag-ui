@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:ag_ui/src/encoder/encoder.dart';
 import 'package:ag_ui/src/events/events.dart';
+import 'package:ag_ui/src/proto/proto.dart';
 import 'package:ag_ui/src/types/message.dart';
 import 'package:test/test.dart';
 
@@ -200,7 +201,7 @@ void main() {
         expect(decoded, contains('"messageId":"msg123"'));
       });
 
-      test('falls back to SSE bytes for protobuf (not yet implemented)', () {
+      test('encodes framed binary payloads when protobuf is accepted', () {
         final encoder = EventEncoder(
           accept: 'application/vnd.ag-ui.event+proto',
         );
@@ -209,11 +210,21 @@ void main() {
         );
 
         final binary = encoder.encodeBinary(event);
-        final decoded = utf8.decode(binary);
-        
-        // Should fall back to SSE until protobuf is implemented
-        expect(decoded, startsWith('data: '));
-        expect(decoded, contains('"type":"TEXT_MESSAGE_START"'));
+        final frameLength = ByteData.sublistView(binary, 0, 4).getUint32(0, Endian.big);
+
+        expect(frameLength, binary.length - 4);
+        expect(decodeProtoFrame(binary), isA<TextMessageStartEvent>());
+      });
+    });
+
+    group('encodeProtobuf', () {
+      test('encodes an event with a 4-byte big-endian length prefix', () {
+        final event = TextMessageStartEvent(messageId: 'msg123');
+        final binary = encoder.encodeProtobuf(event);
+        final frameLength = ByteData.sublistView(binary, 0, 4).getUint32(0, Endian.big);
+
+        expect(frameLength, binary.length - 4);
+        expect(decodeProtoFrame(binary), isA<TextMessageStartEvent>());
       });
     });
 

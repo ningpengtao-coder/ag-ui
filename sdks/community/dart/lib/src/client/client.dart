@@ -511,17 +511,20 @@ class CancelToken {
 class SimpleRunAgentInput {
   final String? threadId;
   final String? runId;
+  final String? parentRunId;
   final List<Message>? messages;
   final List<Tool>? tools;
   final List<Context>? context;
-  final dynamic state;
+  final Object? state;
   final Map<String, dynamic>? config;
   final Map<String, dynamic>? metadata;
-  final dynamic forwardedProps;
+  final Object? forwardedProps;
+  final List<ResumeEntry>? resume;
 
   const SimpleRunAgentInput({
     this.threadId,
     this.runId,
+    this.parentRunId,
     this.messages,
     this.tools,
     this.context,
@@ -529,17 +532,34 @@ class SimpleRunAgentInput {
     this.config,
     this.metadata,
     this.forwardedProps,
+    this.resume,
   });
+
+  factory SimpleRunAgentInput.fromRunAgentInput(RunAgentInput input) {
+    return SimpleRunAgentInput(
+      threadId: input.threadId,
+      runId: input.runId,
+      parentRunId: input.parentRunId,
+      messages: input.messages,
+      tools: input.tools,
+      context: input.context,
+      state: input.state,
+      forwardedProps: input.forwardedProps,
+      resume: input.resume,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
-      if (threadId != null) 'thread_id': threadId,
-      if (runId != null) 'run_id': runId,
+      if (threadId != null) 'threadId': threadId,
+      if (runId != null) 'runId': runId,
+      if (parentRunId != null) 'parentRunId': parentRunId,
       'state': state ?? {},
       'messages': messages?.map((m) => m.toJson()).toList() ?? [],
       'tools': tools?.map((t) => t.toJson()).toList() ?? [],
       'context': context?.map((c) => c.toJson()).toList() ?? [],
       'forwardedProps': forwardedProps ?? {},
+      if (resume != null) 'resume': resume!.map((item) => item.toJson()).toList(),
       if (config != null) 'config': config,
       if (metadata != null) 'metadata': metadata,
     };

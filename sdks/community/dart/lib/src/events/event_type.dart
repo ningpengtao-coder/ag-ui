@@ -1,7 +1,6 @@
 /// Event type enumeration for AG-UI protocol.
 library;
 
-/// Enumeration of all AG-UI event types
 enum EventType {
   textMessageStart('TEXT_MESSAGE_START'),
   textMessageContent('TEXT_MESSAGE_CONTENT'),
@@ -21,13 +20,22 @@ enum EventType {
   stateSnapshot('STATE_SNAPSHOT'),
   stateDelta('STATE_DELTA'),
   messagesSnapshot('MESSAGES_SNAPSHOT'),
+  activitySnapshot('ACTIVITY_SNAPSHOT'),
+  activityDelta('ACTIVITY_DELTA'),
   raw('RAW'),
   custom('CUSTOM'),
   runStarted('RUN_STARTED'),
   runFinished('RUN_FINISHED'),
   runError('RUN_ERROR'),
   stepStarted('STEP_STARTED'),
-  stepFinished('STEP_FINISHED');
+  stepFinished('STEP_FINISHED'),
+  reasoningStart('REASONING_START'),
+  reasoningMessageStart('REASONING_MESSAGE_START'),
+  reasoningMessageContent('REASONING_MESSAGE_CONTENT'),
+  reasoningMessageEnd('REASONING_MESSAGE_END'),
+  reasoningMessageChunk('REASONING_MESSAGE_CHUNK'),
+  reasoningEnd('REASONING_END'),
+  reasoningEncryptedValue('REASONING_ENCRYPTED_VALUE');
 
   final String value;
   const EventType(this.value);

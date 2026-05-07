@@ -1,14 +1,8 @@
 /// Tool-related types for AG-UI protocol.
-///
-/// This library defines types for tool interactions, including tool calls
-/// from the assistant and tool definitions.
 library;
 
 import 'base.dart';
 
-/// Represents a function call within a tool call.
-///
-/// Contains the function name and serialized arguments for execution.
 class FunctionCall extends AGUIModel {
   final String name;
   final String arguments;
@@ -43,19 +37,17 @@ class FunctionCall extends AGUIModel {
   }
 }
 
-/// Represents a tool call made by the assistant.
-///
-/// Tool calls allow the assistant to request execution of external functions
-/// or tools to gather information or perform actions.
 class ToolCall extends AGUIModel {
   final String id;
   final String type;
   final FunctionCall function;
+  final String? encryptedValue;
 
   const ToolCall({
     required this.id,
     this.type = 'function',
     required this.function,
+    this.encryptedValue,
   });
 
   factory ToolCall.fromJson(Map<String, dynamic> json) {
@@ -65,6 +57,7 @@ class ToolCall extends AGUIModel {
       function: FunctionCall.fromJson(
         JsonDecoder.requireField<Map<String, dynamic>>(json, 'function'),
       ),
+      encryptedValue: JsonDecoder.optionalField<String>(json, 'encryptedValue'),
     );
   }
 
@@ -73,6 +66,7 @@ class ToolCall extends AGUIModel {
     'id': id,
     'type': type,
     'function': function.toJson(),
+    if (encryptedValue != null) 'encryptedValue': encryptedValue,
   };
 
   @override
@@ -80,35 +74,36 @@ class ToolCall extends AGUIModel {
     String? id,
     String? type,
     FunctionCall? function,
+    String? encryptedValue,
   }) {
     return ToolCall(
       id: id ?? this.id,
       type: type ?? this.type,
       function: function ?? this.function,
+      encryptedValue: encryptedValue ?? this.encryptedValue,
     );
   }
 }
 
-/// Represents a tool definition.
-///
-/// Defines a tool that can be called by the assistant, including its
-/// name, description, and parameter schema.
 class Tool extends AGUIModel {
   final String name;
   final String description;
-  final dynamic parameters; // JSON Schema for the tool parameters
+  final Object? parameters;
+  final Map<String, dynamic>? metadata;
 
   const Tool({
     required this.name,
     required this.description,
     this.parameters,
+    this.metadata,
   });
 
   factory Tool.fromJson(Map<String, dynamic> json) {
     return Tool(
       name: JsonDecoder.requireField<String>(json, 'name'),
       description: JsonDecoder.requireField<String>(json, 'description'),
-      parameters: json['parameters'], // Allow any JSON Schema
+      parameters: json['parameters'],
+      metadata: JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
     );
   }
 
@@ -117,32 +112,37 @@ class Tool extends AGUIModel {
     'name': name,
     'description': description,
     if (parameters != null) 'parameters': parameters,
+    if (metadata != null) 'metadata': metadata,
   };
 
   @override
   Tool copyWith({
     String? name,
     String? description,
-    dynamic parameters,
+    Object? parameters,
+    Map<String, dynamic>? metadata,
   }) {
     return Tool(
       name: name ?? this.name,
       description: description ?? this.description,
       parameters: parameters ?? this.parameters,
+      metadata: metadata ?? this.metadata,
     );
   }
 }
 
-/// Represents the result of a tool call
+/// Convenience model for tool execution results in client-side workflows.
 class ToolResult extends AGUIModel {
   final String toolCallId;
   final String content;
   final String? error;
+  final Map<String, dynamic>? metadata;
 
   const ToolResult({
     required this.toolCallId,
     required this.content,
     this.error,
+    this.metadata,
   });
 
   factory ToolResult.fromJson(Map<String, dynamic> json) {
@@ -161,6 +161,7 @@ class ToolResult extends AGUIModel {
       toolCallId: toolCallId,
       content: JsonDecoder.requireField<String>(json, 'content'),
       error: JsonDecoder.optionalField<String>(json, 'error'),
+      metadata: JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
     );
   }
 
@@ -169,6 +170,7 @@ class ToolResult extends AGUIModel {
     'toolCallId': toolCallId,
     'content': content,
     if (error != null) 'error': error,
+    if (metadata != null) 'metadata': metadata,
   };
 
   @override
@@ -176,11 +178,13 @@ class ToolResult extends AGUIModel {
     String? toolCallId,
     String? content,
     String? error,
+    Map<String, dynamic>? metadata,
   }) {
     return ToolResult(
       toolCallId: toolCallId ?? this.toolCallId,
       content: content ?? this.content,
       error: error ?? this.error,
+      metadata: metadata ?? this.metadata,
     );
   }
 }

@@ -9,6 +9,7 @@ import 'dart:typed_data';
 import '../client/errors.dart';
 import '../client/validators.dart';
 import '../events/events.dart';
+import '../proto/proto.dart';
 import '../types/base.dart';
 
 /// Decoder for AG-UI events.
@@ -115,9 +116,24 @@ class EventDecoder {
 
   /// Decodes an event from binary data.
   ///
-  /// Currently assumes the binary data is UTF-8 encoded SSE.
-  /// TODO: Add protobuf support when proto definitions are available.
+  /// Supports AG-UI length-prefixed binary frames as well as UTF-8 SSE/JSON.
   BaseEvent decodeBinary(Uint8List data) {
+    if (isProtoFrame(data)) {
+      try {
+        final event = decodeProtoFrame(data);
+        validate(event);
+        return event;
+      } catch (e) {
+        throw DecodingError(
+          'Invalid AG-UI binary frame',
+          field: 'binary',
+          expectedType: 'AG-UI framed binary event',
+          actualValue: data,
+          cause: e,
+        );
+      }
+    }
+
     try {
       final string = utf8.decode(data);
       
@@ -155,12 +171,17 @@ class EventDecoder {
         Validators.requireNonEmpty(event.delta, 'delta');
       case ThinkingContentEvent():
         Validators.requireNonEmpty(event.delta, 'delta');
+      case ThinkingTextMessageContentEvent():
+        Validators.requireNonEmpty(event.delta, 'delta');
       case ToolCallStartEvent():
         Validators.requireNonEmpty(event.toolCallId, 'toolCallId');
         Validators.requireNonEmpty(event.toolCallName, 'toolCallName');
       case RunStartedEvent():
         Validators.validateThreadId(event.threadId);
         Validators.validateRunId(event.runId);
+      case ReasoningMessageContentEvent():
+        Validators.requireNonEmpty(event.messageId, 'messageId');
+        Validators.requireNonEmpty(event.delta, 'delta');
       default:
         // No specific validation for other event types
         break;

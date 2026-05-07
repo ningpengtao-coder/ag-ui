@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:ag_ui/src/client/errors.dart';
 import 'package:ag_ui/src/encoder/decoder.dart';
 import 'package:ag_ui/src/events/events.dart';
+import 'package:ag_ui/src/proto/proto.dart';
 import 'package:ag_ui/src/types/base.dart';
 import 'package:ag_ui/src/types/message.dart';
 import 'package:test/test.dart';
@@ -266,6 +267,19 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
     });
 
     group('decodeBinary', () {
+      test('decodes framed AG-UI binary data', () {
+        final binary = encodeProtoFrame(
+          const CustomEvent(name: 'test', value: 42),
+        );
+
+        final event = decoder.decodeBinary(binary);
+
+        expect(event, isA<CustomEvent>());
+        final customEvent = event as CustomEvent;
+        expect(customEvent.name, equals('test'));
+        expect(customEvent.value, equals(42));
+      });
+
       test('decodes UTF-8 encoded JSON', () {
         final json = '{"type":"CUSTOM","name":"test","value":42}';
         final binary = Uint8List.fromList(utf8.encode(json));
