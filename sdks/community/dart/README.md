@@ -1,8 +1,39 @@
-# ag-ui-dart
+# ag_ui
 
-Dart SDK for the **Agent-User Interaction (AG-UI) Protocol**.
+Client SDK for connecting to **Agent-User Interaction (AG-UI) Protocol** servers.
 
-`ag-ui-dart` provides Dart developers with strongly-typed client implementations for connecting to AG-UI compatible agent servers. Built with modern Dart patterns for robust validation, reactive programming, and seamless server-sent event streaming.
+`ag_ui` mirrors the TypeScript `@ag-ui/client` package as closely as Dart allows:
+
+- `HttpAgent` for stateful agent execution with middleware and subscribers
+- `AgUiClient` for direct HTTP streaming to AG-UI servers
+- protocol events, types, transforms, verification, and encoding utilities from one import
+
+## Configuring The Server URL
+
+In Dart, `HttpAgent` uses the same transport client as `AgUiClient`:
+
+- `AgUiClientConfig.baseUrl` is the AG-UI server base address
+- `HttpAgentConfig.endpoint` is the agent path, such as `agent` or `agentic_chat`
+- if `endpoint` is an absolute URL, it is used directly
+
+Example:
+
+```dart
+final client = AgUiClient(
+  config: AgUiClientConfig(
+    baseUrl: 'https://api.example.com',
+  ),
+);
+
+final agent = HttpAgent(
+  HttpAgentConfig(
+    client: client,
+    endpoint: 'agentic_chat',
+  ),
+);
+```
+
+This resolves to `https://api.example.com/agentic_chat`.
 
 ## Installation
 
@@ -14,259 +45,151 @@ Or add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  ag_ui: ^0.1.0
+  ag_ui: ^0.0.53
 ```
 
 ## Features
 
-- 🎯 **Dart-native** – Idiomatic Dart APIs with full type safety and null safety
-- 🔗 **HTTP connectivity** – `AgUiClient` for direct server connections with SSE streaming
-- 📡 **Event streaming** – 16 core event types for real-time agent communication
-- 🔄 **State management** – Automatic message/state tracking with JSON Patch support
-- 🛠️ **Tool interactions** – Full support for tool calls and generative UI
-- ⚡ **High performance** – Efficient event decoding with backpressure handling
+- HTTP connectivity with SSE support via `AgUiClient`
+- Stateful agent execution via `HttpAgent`
+- Event streaming with verification and chunk normalization
+- State and message application helpers
+- Middleware and subscriber hooks
+- Protocol types, event factories, and protobuf helpers
 
-## Quick example
+## Quick Example
 
 ```dart
 import 'package:ag_ui/ag_ui.dart';
 
-// Initialize client
-final client = AgUiClient(
-  config: AgUiClientConfig(
-    baseUrl: 'https://api.example.com',
-    defaultHeaders: {'Authorization': 'Bearer token'},
-  ),
-);
-
-// Create and send message
-final input = SimpleRunAgentInput(
-  messages: [
-    UserMessage(
-      id: 'msg_123',
-      content: 'Hello from Dart!',
+Future<void> main() async {
+  final client = AgUiClient(
+    config: AgUiClientConfig(
+      baseUrl: 'https://api.example.com', // AG-UI server base URL
+      defaultHeaders: {'Authorization': 'Bearer token'},
     ),
-  ],
-);
+  );
 
-// Stream response events
-await for (final event in client.runAgent('agentic_chat', input)) {
-  if (event is TextMessageContentEvent) {
-    print('Assistant: ${event.text}');
-  }
+  final agent = HttpAgent(
+    HttpAgentConfig(
+      client: client,
+      endpoint: 'agent', // Agent endpoint path
+      initialMessages: [
+        UserMessage(
+          id: 'msg_1',
+          content: 'Hello!',
+        ),
+      ],
+    ),
+  );
+
+  final result = await agent.runAgent();
+  print(result.newMessages);
+
+  await client.close();
 }
 ```
 
-## Packages
+If you prefer, you can also pass a full URL as the endpoint:
 
-- **`ag_ui`** – Core client library for AG-UI protocol
-- **`ag_ui.client`** – HTTP client with SSE streaming support
-- **`ag_ui.events`** – Event types and event handling
-- **`ag_ui.types`** – Message types, tools, and data models
-- **`ag_ui.encoder`** – Event encoding/decoding utilities
+```dart
+final agent = HttpAgent(
+  HttpAgentConfig(
+    client: client,
+    endpoint: 'https://api.example.com/agent',
+  ),
+);
+```
+
+## Direct Client Example
+
+```dart
+import 'package:ag_ui/ag_ui.dart';
+
+Future<void> main() async {
+  final client = AgUiClient(
+    config: AgUiClientConfig(
+      baseUrl: 'https://api.example.com',
+      defaultHeaders: {'Authorization': 'Bearer token'},
+    ),
+  );
+
+  final input = SimpleRunAgentInput(
+    messages: [
+      UserMessage(
+        id: 'msg_123',
+        content: 'Hello from Dart!',
+      ),
+    ],
+  );
+
+  await for (final event in client.runAgent('agentic_chat', input)) {
+    if (event is TextMessageContentEvent) {
+      print('Assistant: ${event.delta}');
+    } else if (event is ToolCallStartEvent) {
+      print('Calling tool: ${event.toolCallName}');
+    }
+  }
+
+  await client.close();
+}
+```
+
+## Using Middleware
+
+```dart
+import 'package:ag_ui/ag_ui.dart';
+
+Future<void> main() async {
+  final client = AgUiClient(
+    config: AgUiClientConfig(
+      baseUrl: 'https://api.example.com',
+    ),
+  );
+
+  final agent = HttpAgent(
+    HttpAgentConfig(
+      client: client,
+      endpoint: 'agent',
+      initialMessages: [
+        UserMessage(
+          id: 'msg_1',
+          content: 'Hello!',
+        ),
+      ],
+    ),
+  );
+
+  agent.use(
+    (input, next) {
+      print('Starting run: ${input.runId}');
+      return next.run(input);
+    },
+    FilterToolCallsMiddleware(
+      allowedToolCalls: ['search', 'calculate'],
+    ),
+  );
+
+  await agent.runAgent();
+  await client.close();
+}
+```
+
+## Lower-Level Modules
+
+All common APIs are exported from `package:ag_ui/ag_ui.dart`, including:
+
+- agent types and subscribers
+- events and protocol models
+- `transform`, `verify`, `apply`, and `compact`
+- middleware and interrupt helpers
+- protobuf and encoder utilities
 
 ## Documentation
 
 - Concepts & architecture: [`docs/concepts`](https://docs.ag-ui.com/concepts/architecture)
 - Full API reference: [`docs/sdk/dart`](https://docs.ag-ui.com/sdk/dart/client/overview)
 
-## Core Usage
-
-### Initialize Client
-
-```dart
-import 'package:ag_ui/ag_ui.dart';
-
-final client = AgUiClient(
-  config: AgUiClientConfig(
-    baseUrl: 'https://api.example.com',
-    defaultHeaders: {'Authorization': 'Bearer token'},
-    requestTimeout: Duration(seconds: 30),
-  ),
-);
-```
-
-### Stream Agent Responses
-
-```dart
-final input = SimpleRunAgentInput(
-  messages: [
-    UserMessage(
-      id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
-      content: 'Explain quantum computing',
-    ),
-  ],
-);
-
-await for (final event in client.runAgent('agentic_chat', input)) {
-  switch (event.type) {
-    case EventType.textMessageContent:
-      final text = (event as TextMessageContentEvent).text;
-      print(text); // Stream tokens
-      break;
-    case EventType.runFinished:
-      print('Complete');
-      break;
-  }
-}
-```
-
-### Tool-Based Interactions
-
-```dart
-List<ToolCall> toolCalls = [];
-
-// Collect tool calls from first run
-await for (final event in client.runToolBasedGenerativeUi(input)) {
-  if (event is MessagesSnapshotEvent) {
-    for (final msg in event.messages) {
-      if (msg is AssistantMessage && msg.toolCalls != null) {
-        toolCalls.addAll(msg.toolCalls!);
-      }
-    }
-  }
-}
-
-// Process tool calls and send results
-final toolResults = toolCalls.map((call) => ToolMessage(
-  id: 'tool_${DateTime.now().millisecondsSinceEpoch}',
-  toolCallId: call.id,
-  content: processToolCall(call),
-)).toList();
-
-final followUp = SimpleRunAgentInput(
-  threadId: input.threadId,
-  messages: [...input.messages, ...toolResults],
-);
-
-// Get final response
-await for (final event in client.runToolBasedGenerativeUi(followUp)) {
-  // Handle response
-}
-```
-
-### State Management
-
-```dart
-Map<String, dynamic> state = {};
-List<Message> messages = [];
-
-await for (final event in client.runSharedState(input)) {
-  switch (event.type) {
-    case EventType.stateSnapshot:
-      state = (event as StateSnapshotEvent).snapshot;
-      break;
-    case EventType.stateDelta:
-      // Apply JSON Patch (RFC 6902) operations
-      applyJsonPatch(state, (event as StateDeltaEvent).delta);
-      break;
-    case EventType.messagesSnapshot:
-      messages = (event as MessagesSnapshotEvent).messages;
-      break;
-  }
-}
-```
-
-### Error Handling
-
-```dart
-final cancelToken = CancelToken();
-
-try {
-  await for (final event in client.runAgent('agent', input, cancelToken: cancelToken)) {
-    // Process events
-    if (shouldCancel(event)) {
-      cancelToken.cancel();
-      break;
-    }
-  }
-} on ConnectionException catch (e) {
-  print('Connection error: ${e.message}');
-} on ValidationError catch (e) {
-  print('Validation error: ${e.message}');
-} on CancelledException {
-  print('Request cancelled');
-}
-```
-
-## Complete Example
-
-```dart
-import 'dart:io';
-import 'package:ag_ui/ag_ui.dart';
-
-void main() async {
-  // Initialize client from environment
-  final client = AgUiClient(
-    config: AgUiClientConfig(
-      baseUrl: Platform.environment['AGUI_BASE_URL'] ?? 'http://localhost:8000',
-      defaultHeaders: Platform.environment['AGUI_API_KEY'] != null
-          ? {'Authorization': 'Bearer ${Platform.environment['AGUI_API_KEY']}'}
-          : null,
-    ),
-  );
-
-  // Interactive chat loop
-  stdout.write('You: ');
-  final userInput = stdin.readLineSync() ?? '';
-
-  final input = SimpleRunAgentInput(
-    messages: [
-      UserMessage(
-        id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
-        content: userInput,
-      ),
-    ],
-  );
-
-  stdout.write('Assistant: ');
-  await for (final event in client.runAgent('agentic_chat', input)) {
-    if (event is TextMessageContentEvent) {
-      stdout.write(event.text);
-    } else if (event is ToolCallStartEvent) {
-      print('\nCalling tool: ${event.toolName}');
-    } else if (event.type == EventType.runFinished) {
-      print('\nDone!');
-      break;
-    }
-  }
-
-  client.dispose();
-}
-```
-
-## Examples
-
-See the [`example/`](example/) directory for:
-- Interactive CLI for testing AG-UI servers
-- Tool-based generative UI flows
-- Message streaming patterns
-- Complete end-to-end demonstrations
-
-## Testing
-
-```bash
-# Run unit tests
-dart test
-
-# Run integration tests (requires server)
-cd test/integration
-./helpers/start_server.sh
-dart test
-./helpers/stop_server.sh
-```
-
-## Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
-
 ## License
 
 This SDK is part of the AG-UI Protocol project. See the [main repository](https://github.com/ag-ui-protocol/ag-ui) for license information.
-
-

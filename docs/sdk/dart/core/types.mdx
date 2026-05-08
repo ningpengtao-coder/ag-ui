@@ -5,45 +5,47 @@ description: "Core type definitions for the AG-UI Dart SDK"
 
 # Core Types
 
-The AG-UI Dart SDK provides strongly-typed data structures for agent interactions. All types are immutable and support JSON serialization.
+The AG-UI Dart SDK exposes immutable protocol models for runs, messages, tools, context, interrupts, and multimodal user input.
 
 ## RunAgentInput
 
-Input parameters for executing an agent.
-
-### SimpleRunAgentInput
-
-The standard implementation for most use cases:
+`RunAgentInput` is the canonical protocol model used inside the core SDK.
 
 ```dart
-class SimpleRunAgentInput extends RunAgentInput {
+class RunAgentInput extends AGUIModel {
+  final String threadId;
+  final String runId;
+  final String? parentRunId;
+  final Object? state;
   final List<Message> messages;
-  final Map<String, dynamic>? context;
-  final List<Tool>? tools;
-  final String? threadId;
-  final Map<String, dynamic>? modelConfig;
+  final List<Tool> tools;
+  final List<Context> context;
+  final Object? forwardedProps;
+  final List<ResumeEntry>? resume;
 
-  const SimpleRunAgentInput({
+  const RunAgentInput({
+    required this.threadId,
+    required this.runId,
+    this.parentRunId,
+    this.state,
     required this.messages,
-    this.context,
-    this.tools,
-    this.threadId,
-    this.modelConfig,
+    required this.tools,
+    required this.context,
+    this.forwardedProps,
+    this.resume,
   });
 }
 ```
 
-#### Example
+### Example
 
 ```dart
-final input = SimpleRunAgentInput(
+final input = RunAgentInput(
+  threadId: 'thread_123',
+  runId: 'run_456',
   messages: [
     UserMessage(id: 'msg_1', content: 'Hello!'),
   ],
-  context: {
-    'userId': 'user123',
-    'sessionId': 'session456',
-  },
   tools: [
     Tool(
       name: 'get_weather',
@@ -56,487 +58,350 @@ final input = SimpleRunAgentInput(
       },
     ),
   ],
-  threadId: 'thread_789',
+  context: const [
+    Context(description: 'tenant', value: 'acme'),
+  ],
+  state: {'mode': 'chat'},
 );
 ```
 
-### StructuredRunAgentInput
+## SimpleRunAgentInput
 
-For complex inputs with additional metadata:
+`SimpleRunAgentInput` is the convenience model used by `AgUiClient.runAgent()`. It keeps most fields optional and serializes missing collections as empty arrays.
 
 ```dart
-class StructuredRunAgentInput extends RunAgentInput {
-  final List<Message> messages;
-  final Map<String, dynamic> context;
-  final List<Tool> tools;
-  final String threadId;
-  final Map<String, dynamic> metadata;
-  final RunConfiguration configuration;
+class SimpleRunAgentInput {
+  final String? threadId;
+  final String? runId;
+  final String? parentRunId;
+  final List<Message>? messages;
+  final List<Tool>? tools;
+  final List<Context>? context;
+  final Object? state;
+  final Map<String, dynamic>? config;
+  final Map<String, dynamic>? metadata;
+  final Object? forwardedProps;
+  final List<ResumeEntry>? resume;
 
-  const StructuredRunAgentInput({
-    required this.messages,
-    required this.context,
-    required this.tools,
-    required this.threadId,
-    required this.metadata,
-    required this.configuration,
+  const SimpleRunAgentInput({
+    this.threadId,
+    this.runId,
+    this.parentRunId,
+    this.messages,
+    this.tools,
+    this.context,
+    this.state,
+    this.config,
+    this.metadata,
+    this.forwardedProps,
+    this.resume,
   });
 }
 ```
 
+### Example
+
+```dart
+final input = SimpleRunAgentInput(
+  messages: [
+    UserMessage(id: 'msg_1', content: 'Hello!'),
+  ],
+  context: const [
+    Context(description: 'userId', value: 'user123'),
+    Context(description: 'sessionId', value: 'session456'),
+  ],
+  metadata: {'source': 'mobile-app'},
+);
+```
+
 ## Message Types
 
-Messages represent communication between users, assistants, and tools.
+Messages represent conversation state across user, assistant, tool, activity, and reasoning roles.
 
 ### UserMessage
 
-A message from the user:
+User content can be either a plain string or a list of multimodal content parts.
 
 ```dart
 class UserMessage extends Message {
-  final String id;
-  final String content;
-  final List<Attachment>? attachments;
-  final Map<String, dynamic>? metadata;
+  final Object content;
 
   const UserMessage({
-    required this.id,
+    required super.id,
     required this.content,
-    this.attachments,
-    this.metadata,
+    super.name,
+    super.encryptedValue,
   });
 }
 ```
 
 ### AssistantMessage
 
-A message from the AI assistant:
+Assistant messages may contain text, tool calls, or both.
 
 ```dart
 class AssistantMessage extends Message {
-  final String id;
-  final String content;
+  final String? content;
   final List<ToolCall>? toolCalls;
-  final Map<String, dynamic>? metadata;
 
   const AssistantMessage({
-    required this.id,
-    required this.content,
+    required super.id,
+    this.content,
+    super.name,
+    super.encryptedValue,
     this.toolCalls,
-    this.metadata,
   });
 }
 ```
 
-### ToolCallMessage
+### ToolMessage
 
-A request to call a tool:
-
-```dart
-class ToolCallMessage extends Message {
-  final String id;
-  final String toolCallId;
-  final String name;
-  final Map<String, dynamic> arguments;
-
-  const ToolCallMessage({
-    required this.id,
-    required this.toolCallId,
-    required this.name,
-    required this.arguments,
-  });
-}
-```
-
-### ToolResponseMessage
-
-The response from a tool call:
+Tool messages carry the output of a tool invocation.
 
 ```dart
-class ToolResponseMessage extends Message {
-  final String id;
+class ToolMessage extends Message {
+  final String content;
   final String toolCallId;
-  final dynamic result;
   final String? error;
 
-  const ToolResponseMessage({
-    required this.id,
-    required this.toolCallId,
-    required this.result,
-    this.error,
-  });
-}
-```
-
-### SystemMessage
-
-System-level messages:
-
-```dart
-class SystemMessage extends Message {
-  final String id;
-  final String content;
-  final SystemMessageType type;
-
-  const SystemMessage({
-    required this.id,
+  const ToolMessage({
+    required super.id,
     required this.content,
-    required this.type,
+    required this.toolCallId,
+    this.error,
+    super.encryptedValue,
   });
 }
 ```
 
-#### Example Usage
+### Other Message Roles
+
+- `DeveloperMessage`
+- `SystemMessage`
+- `ActivityMessage`
+- `ReasoningMessage`
+
+### Example Conversation
 
 ```dart
 final conversation = [
-  SystemMessage(
+  const SystemMessage(
     id: 'sys_1',
     content: 'You are a helpful assistant.',
-    type: SystemMessageType.instruction,
   ),
   UserMessage(
     id: 'user_1',
-    content: 'What is the weather?',
-    attachments: [
-      Attachment(
-        type: AttachmentType.location,
-        data: {'lat': 37.7749, 'lon': -122.4194},
+    content: [
+      const TextInputContent(text: 'What is the weather?'),
+      ImageInputContent(
+        source: const InputContentUrlSource(
+          value: 'https://example.com/map.png',
+          mimeType: 'image/png',
+        ),
       ),
     ],
   ),
   AssistantMessage(
     id: 'asst_1',
     content: 'Let me check the weather for you.',
-    toolCalls: [
+    toolCalls: const [
       ToolCall(
         id: 'call_1',
-        name: 'get_weather',
-        arguments: {'location': 'San Francisco'},
+        function: FunctionCall(
+          name: 'get_weather',
+          arguments: '{"location":"San Francisco"}',
+        ),
       ),
     ],
   ),
-  ToolResponseMessage(
+  const ToolMessage(
     id: 'tool_1',
     toolCallId: 'call_1',
-    result: {'temperature': 68, 'conditions': 'sunny'},
-  ),
-  AssistantMessage(
-    id: 'asst_2',
-    content: 'It\'s 68°F and sunny in San Francisco.',
+    content: '{"temperature":68,"conditions":"sunny"}',
   ),
 ];
 ```
 
-## Context
+## Multimodal Input Content
 
-Context provides additional information to the agent:
+The SDK models multimodal user content with `InputContent` variants:
+
+- `TextInputContent`
+- `ImageInputContent`
+- `AudioInputContent`
+- `VideoInputContent`
+- `DocumentInputContent`
+- `BinaryInputContent`
+
+These source-backed variants use either `InputContentDataSource` or `InputContentUrlSource`.
 
 ```dart
-class Context {
-  final Map<String, dynamic> data;
+final multimodalMessage = UserMessage(
+  id: 'user_2',
+  content: [
+    const TextInputContent(text: 'Summarize this file'),
+    DocumentInputContent(
+      source: const InputContentUrlSource(
+        value: 'https://example.com/report.pdf',
+        mimeType: 'application/pdf',
+      ),
+    ),
+  ],
+);
+```
 
-  const Context(this.data);
+## Context
 
-  // Typed accessors
-  String? getString(String key) => data[key] as String?;
-  int? getInt(String key) => data[key] as int?;
-  bool? getBool(String key) => data[key] as bool?;
-  Map<String, dynamic>? getMap(String key) =>
-      data[key] as Map<String, dynamic>?;
-  List<dynamic>? getList(String key) => data[key] as List<dynamic>?;
+Context entries are simple description/value pairs.
+
+```dart
+class Context extends AGUIModel {
+  final String description;
+  final String value;
+
+  const Context({
+    required this.description,
+    required this.value,
+  });
 }
 ```
 
 ### Example
 
 ```dart
-final context = Context({
-  'user': {
-    'id': 'user123',
-    'name': 'John Doe',
-    'preferences': {
-      'language': 'en',
-      'timezone': 'America/New_York',
-    },
-  },
-  'session': {
-    'id': 'session456',
-    'startTime': DateTime.now().toIso8601String(),
-  },
-  'features': ['advanced_search', 'voice_input'],
-});
-
-// Access context data
-final userId = context.getMap('user')?['id'];
-final language = context.getString('user.preferences.language');
-final features = context.getList('features');
+const context = [
+  Context(description: 'tenant', value: 'acme'),
+  Context(description: 'locale', value: 'en-US'),
+];
 ```
 
 ## Tool
 
-Defines a function that agents can call:
+`Tool` describes callable capabilities exposed to the agent.
 
 ```dart
-class Tool {
+class Tool extends AGUIModel {
   final String name;
   final String description;
-  final Map<String, dynamic> parameters;
-  final bool? required;
+  final Object? parameters;
   final Map<String, dynamic>? metadata;
 
   const Tool({
     required this.name,
     required this.description,
-    required this.parameters,
-    this.required,
+    this.parameters,
     this.metadata,
   });
 }
 ```
 
-### Example
+### ToolCall And FunctionCall
+
+Assistant tool invocations are represented with `ToolCall` and `FunctionCall`.
 
 ```dart
-final weatherTool = Tool(
-  name: 'get_weather',
-  description: 'Get current weather for a location',
-  parameters: {
-    'type': 'object',
-    'properties': {
-      'location': {
-        'type': 'string',
-        'description': 'City name or coordinates',
-      },
-      'units': {
-        'type': 'string',
-        'enum': ['celsius', 'fahrenheit'],
-        'default': 'celsius',
-      },
-    },
-    'required': ['location'],
-  },
-  required: false,
-  metadata: {
-    'apiVersion': '1.0',
-    'rateLimit': 100,
-  },
-);
+class FunctionCall extends AGUIModel {
+  final String name;
+  final String arguments;
 
-final calculatorTool = Tool(
-  name: 'calculate',
-  description: 'Perform mathematical calculations',
-  parameters: {
-    'type': 'object',
-    'properties': {
-      'expression': {
-        'type': 'string',
-        'description': 'Mathematical expression to evaluate',
-      },
-    },
-    'required': ['expression'],
-  },
-);
+  const FunctionCall({
+    required this.name,
+    required this.arguments,
+  });
+}
+
+class ToolCall extends AGUIModel {
+  final String id;
+  final String type;
+  final FunctionCall function;
+  final String? encryptedValue;
+
+  const ToolCall({
+    required this.id,
+    this.type = 'function',
+    required this.function,
+    this.encryptedValue,
+  });
+}
+```
+
+### ToolResult
+
+`ToolResult` is a client-side convenience model for posting tool execution results.
+
+```dart
+class ToolResult extends AGUIModel {
+  final String toolCallId;
+  final String content;
+  final String? error;
+  final Map<String, dynamic>? metadata;
+
+  const ToolResult({
+    required this.toolCallId,
+    required this.content,
+    this.error,
+    this.metadata,
+  });
+}
+```
+
+## Interrupts And Resume
+
+The core protocol also models human-in-the-loop interruptions and resume payloads.
+
+```dart
+class Interrupt extends AGUIModel {
+  final String id;
+  final String reason;
+  final String? message;
+  final String? toolCallId;
+  final Map<String, dynamic>? responseSchema;
+  final String? expiresAt;
+  final Map<String, dynamic>? metadata;
+
+  const Interrupt({
+    required this.id,
+    required this.reason,
+    this.message,
+    this.toolCallId,
+    this.responseSchema,
+    this.expiresAt,
+    this.metadata,
+  });
+}
+
+class ResumeEntry extends AGUIModel {
+  final String interruptId;
+  final ResumeStatus status;
+  final Object? payload;
+
+  const ResumeEntry({
+    required this.interruptId,
+    required this.status,
+    this.payload,
+  });
+}
 ```
 
 ## State
 
-Represents agent state that can be persisted and restored:
+Agent state is intentionally modeled as `Object?` so snapshots and deltas can carry arbitrary JSON-like structures.
 
 ```dart
-class State {
-  final Map<String, dynamic> data;
-  final String? checkpointId;
-  final DateTime? timestamp;
-
-  const State({
-    required this.data,
-    this.checkpointId,
-    this.timestamp,
-  });
-
-  // Create a new state with updates
-  State update(Map<String, dynamic> updates) {
-    return State(
-      data: {...data, ...updates},
-      checkpointId: checkpointId,
-      timestamp: DateTime.now(),
-    );
-  }
-
-  // Apply a JSON Patch
-  State patch(List<JsonPatch> patches) {
-    final patchedData = applyJsonPatch(data, patches);
-    return State(
-      data: patchedData,
-      checkpointId: checkpointId,
-      timestamp: DateTime.now(),
-    );
-  }
-}
+Object? state = {
+  'conversation': {'messageCount': 1},
+  'user': {'satisfaction': 'high'},
+};
 ```
 
-### Example
+## Serialization
+
+All protocol models implement `toJson()` and support `fromJson(...)` constructors or factories.
 
 ```dart
-// Initial state
-var state = State(
-  data: {
-    'conversation': {
-      'messageCount': 0,
-      'topics': [],
-    },
-    'user': {
-      'satisfaction': null,
-    },
-  },
-);
-
-// Update state
-state = state.update({
-  'conversation': {
-    'messageCount': 1,
-    'topics': ['weather'],
-  },
+final json = input.toJson();
+final tool = Tool.fromJson({
+  'name': 'get_weather',
+  'description': 'Get current weather',
 });
-
-// Apply JSON Patch
-state = state.patch([
-  JsonPatch(
-    op: 'replace',
-    path: '/user/satisfaction',
-    value: 'high',
-  ),
-  JsonPatch(
-    op: 'add',
-    path: '/conversation/topics/-',
-    value: 'sports',
-  ),
-]);
-```
-
-## Attachment
-
-Represents file or data attachments:
-
-```dart
-class Attachment {
-  final AttachmentType type;
-  final dynamic data;
-  final String? mimeType;
-  final String? filename;
-  final int? size;
-
-  const Attachment({
-    required this.type,
-    required this.data,
-    this.mimeType,
-    this.filename,
-    this.size,
-  });
-}
-
-enum AttachmentType {
-  image,
-  document,
-  audio,
-  video,
-  location,
-  custom,
-}
-```
-
-### Example
-
-```dart
-final imageAttachment = Attachment(
-  type: AttachmentType.image,
-  data: base64ImageData,
-  mimeType: 'image/jpeg',
-  filename: 'photo.jpg',
-  size: 102400,
-);
-
-final locationAttachment = Attachment(
-  type: AttachmentType.location,
-  data: {
-    'latitude': 37.7749,
-    'longitude': -122.4194,
-    'name': 'San Francisco',
-  },
-);
-```
-
-## ToolCall
-
-Represents a tool invocation:
-
-```dart
-class ToolCall {
-  final String id;
-  final String name;
-  final Map<String, dynamic> arguments;
-  final ToolCallStatus? status;
-  final dynamic result;
-  final String? error;
-
-  const ToolCall({
-    required this.id,
-    required this.name,
-    required this.arguments,
-    this.status,
-    this.result,
-    this.error,
-  });
-}
-
-enum ToolCallStatus {
-  pending,
-  running,
-  completed,
-  failed,
-}
-```
-
-## Type Conversions
-
-All types support JSON serialization:
-
-```dart
-// Convert to JSON
-final json = message.toJson();
-final jsonString = jsonEncode(json);
-
-// Convert from JSON
-final decoded = jsonDecode(jsonString);
-final message = Message.fromJson(decoded);
-
-// Batch conversion
-final messages = [msg1, msg2, msg3];
-final jsonList = messages.map((m) => m.toJson()).toList();
-final restored = jsonList.map((j) => Message.fromJson(j)).toList();
-```
-
-## Validation
-
-All types include built-in validation:
-
-```dart
-// Automatic validation on construction
-try {
-  final tool = Tool(
-    name: '',  // Invalid: empty name
-    description: 'Test',
-    parameters: {},
-  );
-} on ValidationError catch (e) {
-  print('Invalid tool: ${e.message}');
-}
-
-// Manual validation
-final validator = TypeValidator();
-final errors = validator.validateMessage(message);
-if (errors.isNotEmpty) {
-  print('Validation errors: $errors');
-}
 ```

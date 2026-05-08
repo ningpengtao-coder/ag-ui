@@ -5,198 +5,192 @@ description: "Event types and handling in the AG-UI Dart SDK"
 
 # Events
 
-The AG-UI protocol uses a comprehensive event system for agent-UI communication. All events extend from `BaseEvent` and are strongly typed for compile-time safety.
+The AG-UI Dart SDK models protocol traffic as a sealed set of strongly typed events. Each event extends `BaseEvent`.
 
 ## BaseEvent
 
-The base class for all protocol events:
-
 ```dart
-sealed class BaseEvent {
-  final String type;
-  final DateTime timestamp;
-  final Map<String, dynamic>? metadata;
+sealed class BaseEvent extends AGUIModel with TypeDiscriminator {
+  final EventType eventType;
+  final int? timestamp;
+  final Object? rawEvent;
 
   const BaseEvent({
-    required this.type,
-    required this.timestamp,
-    this.metadata,
+    required this.eventType,
+    this.timestamp,
+    this.rawEvent,
   });
+
+  String get type => eventType.value;
 }
 ```
 
 ## Lifecycle Events
 
-Track the execution lifecycle of agent runs and steps.
-
 ### RunStartedEvent
-
-Signals the beginning of an agent run:
 
 ```dart
 class RunStartedEvent extends BaseEvent {
+  final String threadId;
   final String runId;
-  final String? threadId;
-  final Map<String, dynamic>? input;
+  final String? parentRunId;
+  final RunAgentInput? input;
 
   const RunStartedEvent({
+    required this.threadId,
     required this.runId,
-    this.threadId,
+    this.parentRunId,
     this.input,
-    DateTime? timestamp,
+    int? timestamp,
   });
 }
 ```
 
 ### RunFinishedEvent
 
-Signals the completion of an agent run:
-
 ```dart
 class RunFinishedEvent extends BaseEvent {
+  final String threadId;
   final String runId;
-  final String? error;
-  final Map<String, dynamic>? output;
-  final Duration? duration;
+  final Object? result;
+  final RunFinishedOutcome? outcome;
 
   const RunFinishedEvent({
+    required this.threadId,
     required this.runId,
-    this.error,
-    this.output,
-    this.duration,
-    DateTime? timestamp,
+    this.result,
+    this.outcome,
+    int? timestamp,
   });
 }
 ```
 
-### StepStartedEvent
+### RunErrorEvent
 
-Marks the beginning of a processing step:
+```dart
+class RunErrorEvent extends BaseEvent {
+  final String message;
+  final String? code;
+
+  const RunErrorEvent({
+    required this.message,
+    this.code,
+    int? timestamp,
+  });
+}
+```
+
+### StepStartedEvent And StepFinishedEvent
 
 ```dart
 class StepStartedEvent extends BaseEvent {
-  final String stepId;
-  final String runId;
-  final String stepType;
-  final String? parentStepId;
+  final String stepName;
 
   const StepStartedEvent({
-    required this.stepId,
-    required this.runId,
-    required this.stepType,
-    this.parentStepId,
-    DateTime? timestamp,
+    required this.stepName,
+    int? timestamp,
   });
 }
-```
 
-### StepFinishedEvent
-
-Marks the completion of a processing step:
-
-```dart
 class StepFinishedEvent extends BaseEvent {
-  final String stepId;
-  final String runId;
-  final String? error;
-  final Map<String, dynamic>? output;
+  final String stepName;
 
   const StepFinishedEvent({
-    required this.stepId,
-    required this.runId,
-    this.error,
-    this.output,
-    DateTime? timestamp,
+    required this.stepName,
+    int? timestamp,
   });
 }
 ```
 
-### Example Usage
+### Example
 
 ```dart
 await for (final event in client.runAgent('agent', input)) {
   switch (event) {
     case RunStartedEvent(:final runId):
       print('Started run: $runId');
-      startTimer();
 
-    case StepStartedEvent(:final stepType):
-      print('Processing: $stepType');
+    case StepStartedEvent(:final stepName):
+      print('Starting step: $stepName');
 
-    case StepFinishedEvent(:final error):
-      if (error != null) {
-        print('Step failed: $error');
-      }
+    case RunFinishedEvent(:final result, :final outcome):
+      print('Finished run with result=$result outcome=${outcome?.type}');
 
-    case RunFinishedEvent(:final duration):
-      print('Completed in ${duration?.inSeconds}s');
-      stopTimer();
+    case RunErrorEvent(:final message):
+      print('Run failed: $message');
   }
 }
 ```
 
-## Text Message Events
+## Message Events
 
-Handle streaming text responses from the assistant.
-
-### TextMessageStartedEvent
-
-Indicates the start of a text message:
+### TextMessageStartEvent
 
 ```dart
-class TextMessageStartedEvent extends BaseEvent {
+class TextMessageStartEvent extends BaseEvent {
   final String messageId;
-  final String? role;
-  final Map<String, dynamic>? metadata;
+  final TextMessageRole role;
+  final String? name;
 
-  const TextMessageStartedEvent({
+  const TextMessageStartEvent({
     required this.messageId,
-    this.role,
-    this.metadata,
-    DateTime? timestamp,
+    this.role = TextMessageRole.assistant,
+    this.name,
+    int? timestamp,
   });
 }
 ```
 
-### TextMessageDeltaEvent
-
-Streams incremental text content:
+### TextMessageContentEvent
 
 ```dart
-class TextMessageDeltaEvent extends BaseEvent {
+class TextMessageContentEvent extends BaseEvent {
   final String messageId;
   final String delta;
-  final int? position;
 
-  const TextMessageDeltaEvent({
+  const TextMessageContentEvent({
     required this.messageId,
     required this.delta,
-    this.position,
-    DateTime? timestamp,
+    int? timestamp,
   });
 }
 ```
 
-### TextMessageFinishedEvent
-
-Signals message completion:
+### TextMessageEndEvent
 
 ```dart
-class TextMessageFinishedEvent extends BaseEvent {
+class TextMessageEndEvent extends BaseEvent {
   final String messageId;
-  final String fullText;
-  final int tokenCount;
 
-  const TextMessageFinishedEvent({
+  const TextMessageEndEvent({
     required this.messageId,
-    required this.fullText,
-    required this.tokenCount,
-    DateTime? timestamp,
+    int? timestamp,
   });
 }
 ```
 
-### Example: Streaming Text
+### TextMessageChunkEvent
+
+Chunk events are still part of the protocol, but they are usually normalized into start/content/end events before application.
+
+```dart
+class TextMessageChunkEvent extends BaseEvent {
+  final String? messageId;
+  final TextMessageRole? role;
+  final String? delta;
+  final String? name;
+
+  const TextMessageChunkEvent({
+    this.messageId,
+    this.role,
+    this.delta,
+    this.name,
+    int? timestamp,
+  });
+}
+```
+
+### Example
 
 ```dart
 final buffer = StringBuffer();
@@ -204,428 +198,277 @@ String? currentMessageId;
 
 await for (final event in stream) {
   switch (event) {
-    case TextMessageStartedEvent(:final messageId):
+    case TextMessageStartEvent(:final messageId):
       currentMessageId = messageId;
       buffer.clear();
-      showTypingIndicator();
 
-    case TextMessageDeltaEvent(:final delta, :final messageId):
+    case TextMessageContentEvent(:final messageId, :final delta):
       if (messageId == currentMessageId) {
         buffer.write(delta);
-        updateUI(buffer.toString());
       }
 
-    case TextMessageFinishedEvent(:final fullText):
-      hideTypingIndicator();
-      finalizeMessage(fullText);
+    case TextMessageEndEvent(:final messageId):
+      if (messageId == currentMessageId) {
+        print(buffer.toString());
+      }
   }
 }
 ```
 
 ## Tool Call Events
 
-Track tool/function invocations by the agent.
-
-### ToolCallStartedEvent
-
-Signals the start of a tool call:
+### ToolCallStartEvent
 
 ```dart
-class ToolCallStartedEvent extends BaseEvent {
+class ToolCallStartEvent extends BaseEvent {
   final String toolCallId;
-  final String name;
-  final Map<String, dynamic> arguments;
+  final String toolCallName;
+  final String? parentMessageId;
 
-  const ToolCallStartedEvent({
+  const ToolCallStartEvent({
     required this.toolCallId,
-    required this.name,
-    required this.arguments,
-    DateTime? timestamp,
+    required this.toolCallName,
+    this.parentMessageId,
+    int? timestamp,
   });
 }
 ```
 
-### ToolCallProgressEvent
-
-Reports progress during tool execution:
+### ToolCallArgsEvent
 
 ```dart
-class ToolCallProgressEvent extends BaseEvent {
+class ToolCallArgsEvent extends BaseEvent {
   final String toolCallId;
-  final double progress;  // 0.0 to 1.0
-  final String? message;
+  final String delta;
 
-  const ToolCallProgressEvent({
+  const ToolCallArgsEvent({
     required this.toolCallId,
-    required this.progress,
-    this.message,
-    DateTime? timestamp,
+    required this.delta,
+    int? timestamp,
   });
 }
 ```
 
-### ToolCallFinishedEvent
-
-Signals tool call completion:
+### ToolCallEndEvent
 
 ```dart
-class ToolCallFinishedEvent extends BaseEvent {
+class ToolCallEndEvent extends BaseEvent {
   final String toolCallId;
-  final dynamic result;
-  final String? error;
-  final Duration? duration;
 
-  const ToolCallFinishedEvent({
+  const ToolCallEndEvent({
     required this.toolCallId,
-    required this.result,
-    this.error,
-    this.duration,
-    DateTime? timestamp,
+    int? timestamp,
   });
 }
 ```
 
-### Example: Tool Tracking
+### ToolCallResultEvent
 
 ```dart
-final activeTools = <String, ToolCallInfo>{};
+class ToolCallResultEvent extends BaseEvent {
+  final String messageId;
+  final ToolCall toolCall;
 
-await for (final event in stream) {
-  switch (event) {
-    case ToolCallStartedEvent(:final toolCallId, :final name):
-      activeTools[toolCallId] = ToolCallInfo(name: name);
-      print('⚡ Calling $name...');
-
-    case ToolCallProgressEvent(:final toolCallId, :final progress):
-      final percentage = (progress * 100).toStringAsFixed(0);
-      print('  Progress: $percentage%');
-
-    case ToolCallFinishedEvent(:final toolCallId, :final result, :final error):
-      final tool = activeTools.remove(toolCallId);
-      if (error != null) {
-        print('❌ ${tool?.name} failed: $error');
-      } else {
-        print('✅ ${tool?.name} completed');
-      }
-  }
+  const ToolCallResultEvent({
+    required this.messageId,
+    required this.toolCall,
+    int? timestamp,
+  });
 }
 ```
 
-## State Management Events
+### ToolCallChunkEvent
 
-Handle agent state updates and synchronization.
+```dart
+class ToolCallChunkEvent extends BaseEvent {
+  final String? toolCallId;
+  final String? toolCallName;
+  final String? parentMessageId;
+  final String? delta;
+
+  const ToolCallChunkEvent({
+    this.toolCallId,
+    this.toolCallName,
+    this.parentMessageId,
+    this.delta,
+    int? timestamp,
+  });
+}
+```
+
+## State And Snapshot Events
 
 ### StateSnapshotEvent
 
-Provides a complete state snapshot:
-
 ```dart
 class StateSnapshotEvent extends BaseEvent {
-  final Map<String, dynamic> state;
-  final String? checkpointId;
+  final State snapshot;
 
   const StateSnapshotEvent({
-    required this.state,
-    this.checkpointId,
-    DateTime? timestamp,
+    required this.snapshot,
+    int? timestamp,
   });
 }
 ```
 
 ### StateDeltaEvent
 
-Provides incremental state updates using JSON Patch:
-
 ```dart
 class StateDeltaEvent extends BaseEvent {
-  final List<JsonPatch> patches;
-  final String? checkpointId;
+  final List<dynamic> delta;
 
   const StateDeltaEvent({
-    required this.patches,
-    this.checkpointId,
-    DateTime? timestamp,
-  });
-}
-
-class JsonPatch {
-  final String op;  // 'add', 'remove', 'replace', 'move', 'copy', 'test'
-  final String path;
-  final dynamic value;
-  final String? from;
-
-  const JsonPatch({
-    required this.op,
-    required this.path,
-    this.value,
-    this.from,
+    required this.delta,
+    int? timestamp,
   });
 }
 ```
 
 ### MessagesSnapshotEvent
 
-Provides conversation history:
-
 ```dart
 class MessagesSnapshotEvent extends BaseEvent {
   final List<Message> messages;
-  final String? threadId;
 
   const MessagesSnapshotEvent({
     required this.messages,
-    this.threadId,
-    DateTime? timestamp,
+    int? timestamp,
   });
 }
 ```
 
-### Example: State Management
+### ActivitySnapshotEvent And ActivityDeltaEvent
 
 ```dart
-var currentState = <String, dynamic>{};
-final messages = <Message>[];
+class ActivitySnapshotEvent extends BaseEvent {
+  final String messageId;
+  final String activityType;
+  final Map<String, dynamic> content;
+  final bool replace;
 
-await for (final event in stream) {
-  switch (event) {
-    case StateSnapshotEvent(:final state):
-      currentState = Map.from(state);
-      updateStateUI(currentState);
+  const ActivitySnapshotEvent({
+    required this.messageId,
+    required this.activityType,
+    required this.content,
+    this.replace = true,
+    int? timestamp,
+  });
+}
 
-    case StateDeltaEvent(:final patches):
-      for (final patch in patches) {
-        currentState = applyPatch(currentState, patch);
-      }
-      updateStateUI(currentState);
+class ActivityDeltaEvent extends BaseEvent {
+  final String messageId;
+  final String activityType;
+  final List<dynamic> patch;
 
-    case MessagesSnapshotEvent(:final messages):
-      this.messages
-        ..clear()
-        ..addAll(messages);
-      updateConversationUI(this.messages);
-  }
+  const ActivityDeltaEvent({
+    required this.messageId,
+    required this.activityType,
+    required this.patch,
+    int? timestamp,
+  });
 }
 ```
 
-## Special Events
-
-Handle raw data and custom event types.
+## Raw And Custom Events
 
 ### RawEvent
 
-For custom or unrecognized events:
-
 ```dart
 class RawEvent extends BaseEvent {
-  final String eventType;
-  final Map<String, dynamic> data;
+  final Object? event;
+  final String? source;
 
   const RawEvent({
-    required this.eventType,
-    required this.data,
-    DateTime? timestamp,
+    required this.event,
+    this.source,
+    int? timestamp,
   });
 }
 ```
 
-### ErrorEvent
-
-For error notifications:
+### CustomEvent
 
 ```dart
-class ErrorEvent extends BaseEvent {
-  final String code;
-  final String message;
-  final Map<String, dynamic>? details;
+class CustomEvent extends BaseEvent {
+  final String name;
+  final Object? value;
 
-  const ErrorEvent({
-    required this.code,
-    required this.message,
-    this.details,
-    DateTime? timestamp,
-  });
-}
-```
-
-### MetadataEvent
-
-For metadata updates:
-
-```dart
-class MetadataEvent extends BaseEvent {
-  final Map<String, dynamic> metadata;
-  final String? scope;
-
-  const MetadataEvent({
-    required this.metadata,
-    this.scope,
-    DateTime? timestamp,
+  const CustomEvent({
+    required this.name,
+    required this.value,
+    int? timestamp,
   });
 }
 ```
 
 ## Event Handling Patterns
 
-### Complete Handler
-
-Handle all event types comprehensively:
+### Pattern Matching
 
 ```dart
-class EventHandler {
-  void handleEvent(BaseEvent event) {
-    switch (event) {
-      // Lifecycle
-      case RunStartedEvent():
-        onRunStarted(event);
-      case RunFinishedEvent():
-        onRunFinished(event);
-      case StepStartedEvent():
-        onStepStarted(event);
-      case StepFinishedEvent():
-        onStepFinished(event);
-
-      // Messages
-      case TextMessageStartedEvent():
-        onMessageStarted(event);
-      case TextMessageDeltaEvent():
-        onMessageDelta(event);
-      case TextMessageFinishedEvent():
-        onMessageFinished(event);
-
-      // Tool calls
-      case ToolCallStartedEvent():
-        onToolCallStarted(event);
-      case ToolCallProgressEvent():
-        onToolCallProgress(event);
-      case ToolCallFinishedEvent():
-        onToolCallFinished(event);
-
-      // State
-      case StateSnapshotEvent():
-        onStateSnapshot(event);
-      case StateDeltaEvent():
-        onStateDelta(event);
-      case MessagesSnapshotEvent():
-        onMessagesSnapshot(event);
-
-      // Special
-      case ErrorEvent():
-        onError(event);
-      case RawEvent():
-        onRawEvent(event);
-    }
-  }
+switch (event) {
+  case TextMessageStartEvent():
+    onMessageStarted(event);
+  case TextMessageContentEvent():
+    onMessageDelta(event);
+  case TextMessageEndEvent():
+    onMessageFinished(event);
+  case ToolCallStartEvent():
+    onToolCallStarted(event);
+  case ToolCallArgsEvent():
+    onToolCallArgs(event);
+  case ToolCallEndEvent():
+    onToolCallEnd(event);
+  case ToolCallResultEvent():
+    onToolCallResult(event);
+  case StateSnapshotEvent():
+    onStateSnapshot(event);
+  case StateDeltaEvent():
+    onStateDelta(event);
+  case MessagesSnapshotEvent():
+    onMessagesSnapshot(event);
+  case RunErrorEvent():
+    onError(event);
+  case RawEvent():
+    onRawEvent(event);
+  case CustomEvent():
+    onCustom(event);
+  default:
+    print('Unhandled event: ${event.type}');
 }
 ```
 
-### Stream Transformations
-
-Transform event streams for specific use cases:
+### Stream Helpers
 
 ```dart
 extension EventStreamExtensions on Stream<BaseEvent> {
-  /// Extract only text content
   Stream<String> get textContent =>
-      whereType<TextMessageDeltaEvent>()
-      .map((e) => e.delta);
+      whereType<TextMessageContentEvent>().map((e) => e.delta);
 
-  /// Get completed messages
-  Stream<String> get completedMessages =>
-      whereType<TextMessageFinishedEvent>()
-      .map((e) => e.fullText);
+  Stream<ToolCall> get toolResults =>
+      whereType<ToolCallResultEvent>().map((e) => e.toolCall);
 
-  /// Track tool calls
-  Stream<ToolCallResult> get toolResults =>
-      whereType<ToolCallFinishedEvent>()
-      .map((e) => ToolCallResult(
-        id: e.toolCallId,
-        result: e.result,
-        error: e.error,
-      ));
-
-  /// Filter errors
-  Stream<ErrorEvent> get errors =>
-      whereType<ErrorEvent>();
-}
-
-// Usage
-final textStream = eventStream.textContent;
-final errors = eventStream.errors;
-```
-
-### Event Aggregation
-
-Collect related events:
-
-```dart
-class MessageAggregator {
-  final _messages = <String, StringBuffer>{};
-
-  void processEvent(BaseEvent event) {
-    switch (event) {
-      case TextMessageStartedEvent(:final messageId):
-        _messages[messageId] = StringBuffer();
-
-      case TextMessageDeltaEvent(:final messageId, :final delta):
-        _messages[messageId]?.write(delta);
-
-      case TextMessageFinishedEvent(:final messageId):
-        final content = _messages.remove(messageId)?.toString();
-        if (content != null) {
-          onCompleteMessage(messageId, content);
-        }
-    }
-  }
-
-  void onCompleteMessage(String id, String content) {
-    // Handle complete message
-  }
+  Stream<RunErrorEvent> get errors =>
+      whereType<RunErrorEvent>();
 }
 ```
 
-## Testing Events
-
-Create mock events for testing:
+## Testing
 
 ```dart
-// Test event factory
 class TestEvents {
   static RunStartedEvent runStarted([String? runId]) =>
       RunStartedEvent(
+        threadId: 'thread-1',
         runId: runId ?? 'test-run',
-        timestamp: DateTime.now(),
+        timestamp: DateTime.now().millisecondsSinceEpoch,
       );
 
-  static TextMessageDeltaEvent textDelta(String text, [String? messageId]) =>
-      TextMessageDeltaEvent(
+  static TextMessageContentEvent textDelta(String text, [String? messageId]) =>
+      TextMessageContentEvent(
         messageId: messageId ?? 'test-msg',
         delta: text,
-        timestamp: DateTime.now(),
+        timestamp: DateTime.now().millisecondsSinceEpoch,
       );
-
-  static Stream<BaseEvent> mockStream() async* {
-    yield runStarted();
-    yield TextMessageStartedEvent(messageId: 'msg1');
-
-    for (final word in 'Hello world'.split(' ')) {
-      yield textDelta('$word ');
-      await Future.delayed(Duration(milliseconds: 100));
-    }
-
-    yield TextMessageFinishedEvent(
-      messageId: 'msg1',
-      fullText: 'Hello world',
-      tokenCount: 2,
-    );
-    yield RunFinishedEvent(runId: 'test-run');
-  }
 }
-
-// Test usage
-test('handles text streaming', () async {
-  final events = await TestEvents.mockStream().toList();
-  expect(events.length, equals(6));
-  expect(events.first, isA<RunStartedEvent>());
-  expect(events.last, isA<RunFinishedEvent>());
-});
 ```

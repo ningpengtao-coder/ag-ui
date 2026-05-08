@@ -1,93 +1,88 @@
-/// AG-UI Dart SDK - Standardizing agent-user interactions
+/// AG-UI Dart SDK.
 ///
-/// This library provides strongly-typed Dart models for the AG-UI protocol,
-/// enabling agent-user interaction through a standardized event-based system.
+/// `package:ag_ui/ag_ui.dart` is the main public entry point for the Dart SDK.
+/// It mirrors the TypeScript `@ag-ui/client` package by exposing:
 ///
-/// ## Features
+/// - `HttpAgent` for stateful agent runs with middleware and subscribers
+/// - `AgUiClient` for direct HTTP streaming to AG-UI servers
+/// - protocol types, event models, transforms, verification, and encoding helpers
 ///
-/// - **Core Protocol Support**: Full implementation of AG-UI event types
-/// - **HTTP Client**: Production-ready client with SSE streaming support
-/// - **Event Streaming**: Real-time event processing with backpressure handling
-/// - **Tool Interactions**: Support for tool calls with generative UI
-/// - **State Management**: Handle snapshots and deltas (JSON Patch RFC 6902)
-/// - **Type Safety**: Strongly-typed models for all protocol entities
-///
-/// ## Getting Started
+/// ## Getting started
 ///
 /// ```dart
 /// import 'package:ag_ui/ag_ui.dart';
 ///
-/// final client = AgUiClient(
-///   config: AgUiClientConfig(
-///     baseUrl: 'http://localhost:8000',
-///   ),
-/// );
-///
-/// final input = SimpleRunAgentInput(
-///   messages: [
-///     UserMessage(
-///       id: 'msg_1',
-///       content: 'Hello, world!',
+/// Future<void> main() async {
+///   final client = AgUiClient(
+///     config: AgUiClientConfig(
+///       baseUrl: 'http://localhost:8000',
 ///     ),
-///   ],
-/// );
+///   );
 ///
-/// await for (final event in client.runAgent('agent', input)) {
-///   print('Event: ${event.type}');
+///   final agent = HttpAgent(
+///     HttpAgentConfig(
+///       client: client,
+///       endpoint: 'agent',
+///       initialMessages: [
+///         UserMessage(
+///           id: 'msg_1',
+///           content: 'Hello, world!',
+///         ),
+///       ],
+///     ),
+///   );
+///
+///   final result = await agent.runAgent();
+///   print(result.newMessages);
+///
+///   await client.close();
 /// }
 /// ```
 library ag_ui;
 
-// Core types
-export 'src/capabilities.dart';
-export 'src/event_factories.dart';
-export 'src/types/types.dart';
-
-// Event types
-export 'src/events/events.dart';
-
-// Higher-level event utilities
+// Match the TypeScript client package shape as closely as Dart allows.
 export 'src/apply/index.dart';
+export 'src/verify/index.dart';
+export 'src/transform/index.dart';
+export 'src/run/http_request.dart';
+export 'src/legacy/convert.dart';
 export 'src/agent/index.dart';
 export 'src/compact/index.dart';
-export 'src/debug_logger.dart';
-export 'src/interrupts/index.dart';
-export 'src/legacy/convert.dart';
+export 'src/types/types.dart';
+export 'src/events/events.dart';
 export 'src/middleware/middleware.dart';
+export 'src/interrupts/index.dart';
+export 'src/capabilities.dart';
+export 'src/event_factories.dart';
+export 'src/debug_logger.dart';
 export 'src/proto/proto.dart';
-export 'src/run/http_request.dart';
-export 'src/transform/index.dart';
-export 'src/verify/index.dart';
 
-// Encoder/Decoder
-export 'src/encoder/encoder.dart';
-export 'src/encoder/decoder.dart';
-export 'src/encoder/stream_adapter.dart';
-// Hide ValidationError from encoder/errors.dart since we're using the one from client/errors.dart
-export 'src/encoder/errors.dart' hide ValidationError;
-
-// SSE client
-export 'src/sse/sse_client.dart';
-export 'src/sse/sse_message.dart';
-export 'src/sse/backoff_strategy.dart';
-
-// Client API
+// Direct client API used by Dart applications to connect to AG-UI servers.
 export 'src/client/client.dart';
 export 'src/client/config.dart';
 export 'src/client/errors.dart';
 export 'src/client/validators.dart';
 
-// Client codec (hide ToolResult since it's defined in types/tool.dart)
+// Encoder/decoder utilities.
+export 'src/encoder/encoder.dart';
+export 'src/encoder/decoder.dart';
+export 'src/encoder/stream_adapter.dart';
+export 'src/encoder/errors.dart' hide ValidationError;
 export 'src/encoder/client_codec.dart' hide ToolResult;
 
-// Core exports will be added in subsequent tasks
-// export 'src/agent.dart';
-// export 'src/transport.dart';
+// Lower-level SSE helpers.
+export 'src/sse/sse_client.dart';
+export 'src/sse/sse_message.dart';
+export 'src/sse/backoff_strategy.dart';
 
 /// SDK version
-const String agUiVersion = '0.1.0';
+const String agUiVersion = '0.0.53';
 
-/// Initialize the AG-UI SDK
+/// AG-UI does not require global initialization.
+@Deprecated(
+  'Initialization is not required. Import package:ag_ui/ag_ui.dart and '
+  'construct AgUiClient or HttpAgent directly.',
+)
 void initAgUI() {
-  // Initialization logic will be implemented in subsequent tasks
+  // No-op kept for backward compatibility.
 }

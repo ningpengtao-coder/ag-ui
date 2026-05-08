@@ -56,7 +56,7 @@ abstract class AbstractAgent {
     _debugLogger = resolveDebugLogger(value);
   }
 
-  String get maxVersion => '0.1.0';
+  String get maxVersion => '0.0.53';
 
   Stream<BaseEvent> run(RunAgentInput input);
 

@@ -134,10 +134,10 @@ final eventData = receivedFromServer();
 final event = decoder.decode(eventData);
 
 switch (event) {
-  case TextMessageDeltaEvent(:final delta):
+  case TextMessageContentEvent(:final delta):
     print('Received text: $delta');
-  case ToolCallStartedEvent(:final name):
-    print('Tool called: $name');
+  case ToolCallStartEvent(:final toolCallName):
+    print('Tool called: $toolCallName');
 }
 
 // Decode batch

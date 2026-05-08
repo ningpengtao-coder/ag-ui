@@ -26,7 +26,7 @@ dart pub add ag_ui
 import 'package:ag_ui/ag_ui.dart';
 
 void main() async {
-  // Create client
+  // Create client with the AG-UI server base URL
   final client = AgUiClient(
     config: AgUiClientConfig(
       baseUrl: 'http://localhost:8000',
@@ -43,17 +43,59 @@ void main() async {
   // Stream events
   await for (final event in client.runAgent('my-agent', input)) {
     switch (event) {
-      case TextMessageStartedEvent():
+      case TextMessageStartEvent():
         print('Assistant started typing...');
-      case TextMessageDeltaEvent(delta: final delta):
+      case TextMessageContentEvent(delta: final delta):
         print('Assistant: $delta');
-      case ToolCallStartedEvent(name: final name):
+      case ToolCallStartEvent(toolCallName: final name):
         print('Calling tool: $name');
       default:
         print('Event: ${event.type}');
     }
   }
 }
+```
+
+## Server URL Configuration
+
+When you use `AgUiClient`, pass the AG-UI server address as `AgUiClientConfig.baseUrl`:
+
+```dart
+final client = AgUiClient(
+  config: AgUiClientConfig(
+    baseUrl: 'https://api.example.com',
+  ),
+);
+```
+
+When you use `HttpAgent`, the server URL is still configured on the client, and the agent itself only needs an `endpoint`:
+
+```dart
+final client = AgUiClient(
+  config: AgUiClientConfig(
+    baseUrl: 'https://api.example.com',
+  ),
+);
+
+final agent = HttpAgent(
+  HttpAgentConfig(
+    client: client,
+    endpoint: 'agentic_chat',
+  ),
+);
+```
+
+This resolves to `https://api.example.com/agentic_chat`.
+
+You can also pass an absolute URL as the `endpoint` when needed:
+
+```dart
+final agent = HttpAgent(
+  HttpAgentConfig(
+    client: client,
+    endpoint: 'https://api.example.com/agentic_chat',
+  ),
+);
 ```
 
 ## Architecture
@@ -101,7 +143,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  ag_ui: ^1.0.0
+  ag_ui: ^0.0.53
 ```
 
 Then run:

@@ -33,17 +33,41 @@ Executes an agent and returns a stream of decoded events.
 
 ```dart
 Stream<BaseEvent> runAgent(
-  String agentId,
-  RunAgentInput input, {
-  Map<String, String>? headers,
+  String endpoint,
+  SimpleRunAgentInput input, {
+  CancelToken? cancelToken,
 })
 ```
 
 #### Parameters
 
-- `agentId`: Unique identifier for the agent
-- `input`: Agent input containing messages, context, and configuration
-- `headers`: Optional additional headers for this request
+- `endpoint`: Agent endpoint path or absolute URL
+- `input`: Request payload for the run
+- `cancelToken`: Optional cancellation token for aborting the request
+
+#### URL Resolution
+
+`AgUiClient` resolves the request URL using `AgUiClientConfig.baseUrl` and the
+`endpoint` argument:
+
+- if `endpoint` is a relative path such as `agent` or `agentic_chat`, it is appended to `baseUrl`
+- if `endpoint` is an absolute URL, it is used directly
+
+Example:
+
+```dart
+final client = AgUiClient(
+  config: AgUiClientConfig(
+    baseUrl: 'https://api.example.com',
+  ),
+);
+
+await for (final event in client.runAgent('agentic_chat', input)) {
+  print(event.type);
+}
+```
+
+This sends the request to `https://api.example.com/agentic_chat`.
 
 #### Returns
 
@@ -56,14 +80,16 @@ final input = SimpleRunAgentInput(
   messages: [
     UserMessage(id: 'msg_1', content: 'Hello, agent!'),
   ],
-  context: {'sessionId': '12345'},
+  context: const [
+    Context(description: 'sessionId', value: '12345'),
+  ],
 );
 
 await for (final event in client.runAgent('chat-agent', input)) {
   switch (event) {
     case RunStartedEvent():
       print('Agent started');
-    case TextMessageDeltaEvent(delta: final text):
+    case TextMessageContentEvent(delta: final text):
       print('Agent says: $text');
     case RunFinishedEvent():
       print('Agent finished');
@@ -71,76 +97,12 @@ await for (final event in client.runAgent('chat-agent', input)) {
 }
 ```
 
-### runAgentRaw
+### close
 
-Executes an agent and returns raw SSE messages without decoding.
-
-```dart
-Stream<SseMessage> runAgentRaw(
-  String agentId,
-  RunAgentInput input, {
-  Map<String, String>? headers,
-})
-```
-
-#### Use Cases
-
-- Custom event processing
-- Debugging and logging
-- Performance optimization when decoding isn't needed
-
-#### Example
+Closes all active streams and releases HTTP resources.
 
 ```dart
-await for (final message in client.runAgentRaw('agent', input)) {
-  print('Raw event: ${message.event}');
-  print('Raw data: ${message.data}');
-}
-```
-
-### cancelAgent
-
-Cancels an active agent execution.
-
-```dart
-Future<void> cancelAgent(String agentId)
-```
-
-#### Parameters
-
-- `agentId`: The agent ID to cancel
-
-#### Behavior
-
-- Immediately closes the SSE connection
-- Cleans up resources
-- Causes the event stream to complete
-
-#### Example
-
-```dart
-// Start long-running agent
-final stream = client.runAgent('analysis-agent', input);
-
-// Set up listener with timeout
-final subscription = stream.listen(
-  (event) => processEvent(event),
-  onError: (error) => handleError(error),
-);
-
-// Cancel after 10 seconds
-Timer(Duration(seconds: 10), () async {
-  await client.cancelAgent('analysis-agent');
-  await subscription.cancel();
-});
-```
-
-### dispose
-
-Cleans up all resources held by the client.
-
-```dart
-void dispose()
+Future<void> close()
 ```
 
 #### Important
@@ -160,41 +122,32 @@ final AgUiClientConfig config;
 
 The configuration used to initialize the client. Read-only.
 
-### activeStreams
-
-```dart
-Map<String, bool> get activeStreams;
-```
-
-Returns a map of currently active agent IDs and their status.
-
 ## Error Handling
 
 The client throws specific exceptions for different error scenarios:
 
-### AgUiClientError
+### TransportError
 
-General client-side errors.
+HTTP or SSE transport failures.
 
 ```dart
 try {
   await for (final event in client.runAgent('agent', input)) {
     // Process events
   }
-} on AgUiClientError catch (e) {
-  print('Client error: ${e.message}');
-  print('Error code: ${e.code}');
+} on TransportError catch (e) {
+  print('Transport error: ${e.message}');
+  print('Status: ${e.statusCode}');
 }
 ```
 
-### NetworkError
+### TimeoutError
 
-Network connectivity issues.
+Request timeouts.
 
 ```dart
-on NetworkError catch (e) {
-  print('Network error: ${e.message}');
-  // Implement retry logic
+on TimeoutError catch (e) {
+  print('Timed out: ${e.message}');
 }
 ```
 
@@ -205,17 +158,28 @@ Input validation failures.
 ```dart
 on ValidationError catch (e) {
   print('Validation failed: ${e.message}');
-  print('Failed fields: ${e.fields}');
+  print('Failed field: ${e.field}');
 }
 ```
 
-### ServerError
+### CancellationError
 
-Server-side errors (5xx status codes).
+Explicit request cancellation.
 
 ```dart
-on ServerError catch (e) {
-  print('Server error: ${e.statusCode}');
+on CancellationError catch (e) {
+  print('Cancelled: ${e.message}');
+}
+```
+
+#### HTTP Status Handling
+
+HTTP error responses are surfaced as `TransportError`, including server-side
+status codes:
+
+```dart
+on TransportError catch (e) {
+  print('HTTP status: ${e.statusCode}');
   print('Message: ${e.message}');
 }
 ```
@@ -275,12 +239,12 @@ Transform the event stream for specific use cases:
 // Filter only message events
 final messageStream = client
     .runAgent('agent', input)
-    .where((event) => event is TextMessageEvent);
+    .whereType<TextMessageContentEvent>();
 
 // Collect all text into a single string
 final completeText = await client
     .runAgent('agent', input)
-    .whereType<TextMessageDeltaEvent>()
+    .whereType<TextMessageContentEvent>()
     .map((event) => event.delta)
     .join();
 ```
@@ -321,7 +285,7 @@ For long-running streams:
 
 1. Process events immediately rather than buffering
 2. Cancel streams when no longer needed
-3. Dispose of the client when done
+3. Close the client when done
 
 ### Binary Protocol
 
@@ -339,13 +303,13 @@ Mock the client for unit tests:
 ```dart
 class MockAgUiClient implements AgUiClient {
   @override
-  Stream<BaseEvent> runAgent(String agentId, RunAgentInput input) {
+  Stream<BaseEvent> runAgent(String agentId, SimpleRunAgentInput input) {
     return Stream.fromIterable([
-      RunStartedEvent(runId: 'test-run'),
-      TextMessageStartedEvent(messageId: 'msg-1'),
-      TextMessageDeltaEvent(messageId: 'msg-1', delta: 'Hello'),
-      TextMessageFinishedEvent(messageId: 'msg-1'),
-      RunFinishedEvent(runId: 'test-run'),
+      RunStartedEvent(threadId: 'thread-1', runId: 'test-run'),
+      TextMessageStartEvent(messageId: 'msg-1'),
+      TextMessageContentEvent(messageId: 'msg-1', delta: 'Hello'),
+      TextMessageEndEvent(messageId: 'msg-1'),
+      RunFinishedEvent(threadId: 'thread-1', runId: 'test-run'),
     ]);
   }
 }

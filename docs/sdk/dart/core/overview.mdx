@@ -69,19 +69,17 @@ await for (final event in client.runAgent('agent', input)) {
     case RunStartedEvent(:final runId):
       print('Run started: $runId');
 
-    case TextMessageDeltaEvent(:final delta, :final messageId):
+    case TextMessageContentEvent(:final delta, :final messageId):
       print('Message $messageId: $delta');
 
-    case ToolCallStartedEvent(:final name, :final arguments):
-      print('Calling $name with $arguments');
+    case ToolCallStartEvent(:final toolCallName):
+      print('Calling $toolCallName');
 
     case StateSnapshotEvent(:final state):
       print('State updated: $state');
 
-    case RunFinishedEvent(:final error):
-      if (error != null) {
-        print('Run failed: $error');
-      }
+    case RunFinishedEvent(:final result, :final outcome):
+      print('Run finished: result=$result outcome=${outcome?.type}');
   }
 }
 ```
@@ -93,11 +91,11 @@ Events use sealed classes for exhaustive pattern matching:
 ```dart
 sealed class BaseEvent {
   final String type;
-  final DateTime timestamp;
+  final int? timestamp;
 
   const BaseEvent({
     required this.type,
-    required this.timestamp,
+    this.timestamp,
   });
 }
 
@@ -106,9 +104,14 @@ String describeEvent(BaseEvent event) {
   return switch (event) {
     RunStartedEvent() => 'Starting run',
     RunFinishedEvent() => 'Finishing run',
-    TextMessageEvent() => 'Processing message',
-    ToolCallEvent() => 'Calling tool',
-    StateEvent() => 'Updating state',
+    TextMessageStartEvent() => 'Starting message',
+    TextMessageContentEvent() => 'Streaming message content',
+    TextMessageEndEvent() => 'Ending message',
+    ToolCallStartEvent() => 'Starting tool call',
+    ToolCallArgsEvent() => 'Streaming tool call arguments',
+    ToolCallEndEvent() => 'Ending tool call',
+    StateSnapshotEvent() => 'Updating state snapshot',
+    StateDeltaEvent() => 'Applying state delta',
     // No default needed - compiler knows all cases
   };
 }
@@ -120,16 +123,20 @@ Full null safety support with clear nullable types:
 
 ```dart
 class RunAgentInput {
+  final String threadId;
+  final String runId;
+  final Object? state;
   final List<Message> messages;
-  final Map<String, dynamic>? context;  // Optional
-  final List<Tool>? tools;              // Optional
-  final String? threadId;               // Optional
+  final List<Tool> tools;
+  final List<Context> context;
 
   const RunAgentInput({
+    required this.threadId,
+    required this.runId,
+    this.state,
     required this.messages,
-    this.context,
-    this.tools,
-    this.threadId,
+    required this.tools,
+    required this.context,
   });
 }
 ```
@@ -144,7 +151,7 @@ Built on Dart's Stream API for reactive programming:
 // Filter and transform events
 final textStream = client
     .runAgent('agent', input)
-    .whereType<TextMessageDeltaEvent>()
+    .whereType<TextMessageContentEvent>()
     .map((event) => event.delta);
 
 // Aggregate messages
@@ -218,17 +225,15 @@ Built-in validation for all inputs:
 ```dart
 // Validates automatically
 final input = RunAgentInput(
+  threadId: 'thread-1',
+  runId: 'run-1',
   messages: messages,
   tools: tools,
+  context: context,
 );
 
-// Manual validation
-try {
-  InputValidator.validate(input);
-} on ValidationError catch (e) {
-  print('Invalid input: ${e.message}');
-  print('Failed fields: ${e.fields}');
-}
+final json = input.toJson();
+print(json['threadId']);
 ```
 
 ## Best Practices
@@ -240,12 +245,12 @@ Prefer pattern matching over if-else chains:
 ```dart
 // Good
 switch (event) {
-  case TextMessageDeltaEvent(:final delta):
+  case TextMessageContentEvent(:final delta):
     updateUI(delta);
 }
 
 // Less preferred
-if (event is TextMessageDeltaEvent) {
+if (event is TextMessageContentEvent) {
   updateUI(event.delta);
 }
 ```
@@ -272,12 +277,12 @@ Create type-safe helper functions:
 ```dart
 extension EventExtensions on Stream<BaseEvent> {
   Stream<String> get textMessages =>
-      whereType<TextMessageDeltaEvent>()
+      whereType<TextMessageContentEvent>()
       .map((e) => e.delta);
 
-  Stream<ToolCall> get toolCalls =>
-      whereType<ToolCallStartedEvent>()
-      .map((e) => ToolCall(name: e.name, args: e.arguments));
+  Stream<FunctionCall> get toolCalls =>
+      whereType<ToolCallStartEvent>()
+      .map((e) => FunctionCall(name: e.toolCallName, arguments: ''));
 }
 ```
 

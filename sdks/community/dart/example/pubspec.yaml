@@ -1,7 +1,7 @@
 name: ag_ui_example
 description: Example CLI application demonstrating Tool Based Generative UI flow
 publish_to: 'none' # Example app, not published
-version: 0.1.0
+version: 0.0.53
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
