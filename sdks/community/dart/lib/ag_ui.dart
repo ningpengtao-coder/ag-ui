@@ -48,6 +48,7 @@ export 'src/run/http_request.dart';
 export 'src/legacy/convert.dart';
 export 'src/agent/index.dart';
 export 'src/compact/index.dart';
+export 'src/a2ui/index.dart';
 export 'src/types/types.dart';
 export 'src/events/events.dart';
 export 'src/middleware/middleware.dart';

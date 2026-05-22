@@ -1,15 +1,16 @@
 library;
 
-export 'backward_compatibility_0_0_39.dart';
-export 'backward_compatibility_0_0_45.dart';
-export 'backward_compatibility_0_0_47.dart';
-export 'filter_tool_calls.dart';
-
 import '../agent/agent.dart';
 import '../apply/default.dart';
 import '../events/events.dart';
 import '../transform/chunks.dart';
 import '../types/types.dart';
+
+export 'a2ui_middleware.dart';
+export 'backward_compatibility_0_0_39.dart';
+export 'backward_compatibility_0_0_45.dart';
+export 'backward_compatibility_0_0_47.dart';
+export 'filter_tool_calls.dart';
 
 typedef MiddlewareFunction = Stream<BaseEvent> Function(
   RunAgentInput input,

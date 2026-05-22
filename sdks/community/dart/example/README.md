@@ -73,6 +73,76 @@ uv pip install -e .
 
 ## Running the Example
 
+### Quick Local A2UI Examples
+
+If you want to see the Dart `A2UIMiddleware` behavior without starting any
+external server, there are now two focused local demos:
+
+### Custom Catalog Example
+
+Run:
+
+```bash
+cd sdks/community/dart/example
+dart run bin/a2ui_custom_catalog_example.dart
+```
+
+This demo:
+
+- creates a local in-memory agent
+- imports the SDK from the public `package:ag_ui/ag_ui.dart` entrypoint
+- injects a custom dashboard catalog with `MetricCard` and `StatusBadge`
+- emits a `render_a2ui` tool call using only that catalog
+- prints the generated `a2ui_operations` to stdout
+
+You should see output similar to:
+
+```text
+custom catalog run messages:
+ASSISTANT assistant-custom-catalog
+ACTIVITY a2ui-surface
+{
+  "a2ui_operations": [...]
+}
+TOOL RESULT render-custom-catalog: {"status":"rendered"}
+```
+
+### Skill Routing Example
+
+Run:
+
+```bash
+cd sdks/community/dart/example
+dart run bin/a2ui_skill_routing_example.dart
+```
+
+This demo:
+
+- creates a local in-memory `salesSkill` style agent
+- injects a custom sales catalog with `MetricCard` and `FilterBar`
+- lets the skill emit a `render_a2ui` tool call
+- lets `A2UIMiddleware` convert streamed tool args into `ActivityMessage`
+- forwards an `a2uiAction.userAction` payload back into the next run
+- shows how the next run routes back into the same skill
+
+You should see output similar to:
+
+```text
+salesSkill render run messages:
+ASSISTANT assistant-sales-skill
+ACTIVITY a2ui-surface
+{
+  "a2ui_operations": [...]
+}
+TOOL RESULT render-a2ui-call-1: {"status":"rendered"}
+
+salesSkill action follow-up messages:
+ASSISTANT assistant-msg-a2ui-action
+```
+
+For backward compatibility, `dart run bin/a2ui_middleware_example.dart`
+continues to point to the skill routing demo.
+
 ### Step 1: Start the Python Server
 
 In your server terminal:

@@ -175,6 +175,176 @@ Future<void> main() async {
 }
 ```
 
+## Using A2UI Middleware
+
+The Dart SDK now includes `A2UIMiddleware` for bridging AG-UI runs to
+client-rendered A2UI surfaces.
+
+It can:
+
+- inject the `render_a2ui` tool definition
+- inject component catalog schema into `RunAgentInput.context`
+- convert `forwardedProps.a2uiAction` into synthetic tool-call messages
+- transform streamed or final A2UI tool output into `ActivitySnapshotEvent`
+
+Example:
+
+```dart
+import 'package:ag_ui/ag_ui.dart';
+
+Future<void> main() async {
+  final client = AgUiClient(
+    config: AgUiClientConfig(
+      baseUrl: 'https://api.example.com',
+    ),
+  );
+
+  final agent = HttpAgent(
+    HttpAgentConfig(
+      client: client,
+      endpoint: 'agent',
+    ),
+  );
+
+  agent.use(
+    A2UIMiddleware(
+      A2UIMiddlewareConfig(
+        injectA2UITool: true,
+        schema: const A2UIInlineCatalogSchema(
+          catalogId: 'copilotkit://app-dashboard-catalog',
+          components: {
+            'Text': {'type': 'object'},
+            'Column': {'type': 'object'},
+            'Button': {'type': 'object'},
+          },
+        ),
+      ),
+    ),
+  );
+
+  final result = await agent.runAgent(
+    RunAgentParameters(
+      context: const [
+        Context(
+          description: 'Product requirements',
+          value: 'Build a compact dashboard surface when helpful.',
+        ),
+      ],
+    ),
+  );
+
+  final activityMessages = result.newMessages.whereType<ActivityMessage>();
+  for (final activity in activityMessages) {
+    print('${activity.activityType}: ${activity.content}');
+  }
+
+  await client.close();
+}
+```
+
+If the UI forwards an A2UI interaction back to the agent, attach it to
+`forwardedProps`:
+
+```dart
+final result = await agent.runAgent(
+  RunAgentParameters(
+    forwardedProps: {
+      'a2uiAction': {
+        'userAction': {
+          'name': 'submit_form',
+          'surfaceId': 'contact-form',
+          'sourceComponentId': 'submit-btn',
+          'context': {'email': 'alice@example.com'},
+        },
+      },
+    },
+  ),
+);
+```
+
+The middleware converts that payload into synthetic `AssistantMessage` and
+`ToolMessage` entries so the next run can react to the user action naturally.
+
+### Switching catalogs by skill
+
+`A2UIMiddlewareConfig.schema` is configured on the middleware instance, so the
+catalog is not switched automatically per `runAgent()` call. If you want
+different skills to expose different UI components, the most reliable pattern
+is:
+
+- route the request to a skill first
+- give each skill its own agent or middleware configuration
+- attach `A2UIMiddleware` with the catalog for that skill
+- let the chosen skill decide whether to call `render_a2ui`
+
+Example:
+
+```dart
+import 'package:ag_ui/ag_ui.dart';
+
+const salesCatalog = A2UIInlineCatalogSchema(
+  catalogId: 'myapp://sales-catalog',
+  components: {
+    'Column': {'type': 'object'},
+    'Text': {'type': 'object'},
+    'MetricCard': {
+      'type': 'object',
+      'properties': {
+        'label': {'type': 'string'},
+        'value': {'type': 'string'},
+      },
+    },
+  },
+);
+
+const supportCatalog = A2UIInlineCatalogSchema(
+  catalogId: 'myapp://support-catalog',
+  components: {
+    'Column': {'type': 'object'},
+    'Text': {'type': 'object'},
+    'TicketList': {'type': 'object'},
+  },
+);
+
+AbstractAgent attachCatalog(
+  AbstractAgent agent,
+  A2UIInlineCatalogSchema catalog,
+) {
+  agent.use(
+    A2UIMiddleware(
+      A2UIMiddlewareConfig(
+        injectA2UITool: true,
+        schema: catalog,
+      ),
+    ),
+  );
+
+  return agent;
+}
+
+Future<RunAgentResult> routeBySkill({
+  required String skill,
+  required AbstractAgent Function() createAgent,
+  RunAgentParameters parameters = const RunAgentParameters(),
+}) {
+  final catalog = switch (skill) {
+    'sales' => salesCatalog,
+    'support' => supportCatalog,
+    _ => throw UnsupportedError('Unknown skill: $skill'),
+  };
+
+  final agent = attachCatalog(createAgent(), catalog);
+  return agent.runAgent(parameters);
+}
+```
+
+The important split is:
+
+- the skill decides when UI is needed
+- the middleware schema limits which components that skill can render
+- `render_a2ui` carries the structured UI payload
+- `forwardedProps.a2uiAction` sends user interaction back into the same skill
+
 ## Lower-Level Modules
 
 All common APIs are exported from `package:ag_ui/ag_ui.dart`, including:
