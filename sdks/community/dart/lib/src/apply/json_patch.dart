@@ -2,9 +2,33 @@ library;
 
 import 'dart:convert';
 
+import '../types/base.dart';
+import '../types/message.dart';
+
+Object? normalizeJsonValue(Object? value) {
+  if (value == null || value is String || value is num || value is bool) {
+    return value;
+  }
+  if (value is UserMessageContent) {
+    return normalizeJsonValue(value.toJsonValue());
+  }
+  if (value is AGUIModel) {
+    return normalizeJsonValue(value.toJson());
+  }
+  if (value is Map) {
+    return value.map(
+      (key, item) => MapEntry(key.toString(), normalizeJsonValue(item)),
+    );
+  }
+  if (value is Iterable) {
+    return value.map(normalizeJsonValue).toList();
+  }
+  return value;
+}
+
 Object? cloneJsonValue(Object? value) {
   if (value == null) return null;
-  return jsonDecode(jsonEncode(value));
+  return jsonDecode(jsonEncode(normalizeJsonValue(value)));
 }
 
 List<String> _decodePointer(String pointer) {

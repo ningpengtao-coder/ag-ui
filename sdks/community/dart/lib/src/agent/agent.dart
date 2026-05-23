@@ -909,7 +909,7 @@ abstract class AbstractAgent {
   }
 
   static bool _jsonEquals(Object? left, Object? right) {
-    return jsonEncode(left) == jsonEncode(right);
+    return jsonEncode(normalizeJsonValue(left)) == jsonEncode(normalizeJsonValue(right));
   }
 
   static Object? _tryParseJson(String value) {

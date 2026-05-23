@@ -277,6 +277,45 @@ void main() {
       expect(callOrder, ['stateChanged']);
     });
 
+    test('setState normalizes multimodal message content into JSON-safe data', () async {
+      final nextState = {
+        'draft': UserMultimodalMessageContent([
+          TextInputContent(text: 'Sketch this'),
+          ImageInputContent(
+            source: InputContentUrlSource(
+              value: 'https://example.com/sketch.png',
+              mimeType: 'image/png',
+            ),
+          ),
+        ]),
+      };
+
+      expect(() => agent.setState(nextState), returnsNormally);
+
+      await pumpAsyncNotifications();
+
+      expect(agent.state, {
+        'draft': [
+          {
+            'type': 'text',
+            'text': 'Sketch this',
+          },
+          {
+            'type': 'image',
+            'source': {
+              'type': 'url',
+              'value': 'https://example.com/sketch.png',
+              'mimeType': 'image/png',
+            },
+          },
+        ],
+      });
+      expect(newMessageCount, 0);
+      expect(messagesChangedCount, 0);
+      expect(stateChangedCount, 1);
+      expect(callOrder, ['stateChanged']);
+    });
+
     test('notifies subscribers in registration order for addMessage', () async {
       final orderedAgent = MutationTestAgent();
       final orderedCalls = <String>[];
