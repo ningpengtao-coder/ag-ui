@@ -394,6 +394,70 @@ typedef AudioInputPart = AudioInputContent;
 typedef VideoInputPart = VideoInputContent;
 typedef DocumentInputPart = DocumentInputContent;
 typedef InputContentPart = InputContent;
+typedef UserTextContent = String;
+typedef UserMultimodalContent = List<InputContent>;
+
+sealed class UserMessageContent {
+  const UserMessageContent();
+
+  factory UserMessageContent.fromValue(Object content) {
+    if (content is UserMessageContent) {
+      return content;
+    }
+    if (content is String) {
+      return UserTextMessageContent(content);
+    }
+    if (content is List<InputContent>) {
+      return UserMultimodalMessageContent(List<InputContent>.unmodifiable(content));
+    }
+    if (content is List) {
+      return UserMultimodalMessageContent(
+        List<InputContent>.unmodifiable(content.cast<InputContent>()),
+      );
+    }
+    throw AGUIValidationError(
+      message: 'User message content must be a string or a list of content parts.',
+      field: 'content',
+      value: content,
+    );
+  }
+
+  Object toJsonValue();
+
+  String? get textOrNull;
+
+  List<InputContent>? get partsOrNull;
+}
+
+final class UserTextMessageContent extends UserMessageContent {
+  final String text;
+
+  const UserTextMessageContent(this.text);
+
+  @override
+  Object toJsonValue() => text;
+
+  @override
+  String? get textOrNull => text;
+
+  @override
+  List<InputContent>? get partsOrNull => null;
+}
+
+final class UserMultimodalMessageContent extends UserMessageContent {
+  final List<InputContent> parts;
+
+  const UserMultimodalMessageContent(this.parts);
+
+  @override
+  Object toJsonValue() => parts.map((item) => item.toJson()).toList();
+
+  @override
+  String? get textOrNull => null;
+
+  @override
+  List<InputContent>? get partsOrNull => List<InputContent>.unmodifiable(parts);
+}
 
 sealed class Message extends AGUIModel with TypeDiscriminator {
   final String id;
@@ -444,21 +508,28 @@ sealed class Message extends AGUIModel with TypeDiscriminator {
 }
 
 Object? _serializeMessageContent(Object? content) {
+  if (content is UserMessageContent) {
+    return content.toJsonValue();
+  }
   if (content is List<InputContent>) {
     return content.map((item) => item.toJson()).toList();
   }
   return content;
 }
 
-Object _parseUserContent(Map<String, dynamic> json) {
+UserMessageContent _parseUserContent(Map<String, dynamic> json) {
   final content = json['content'];
   if (content is String) {
-    return content;
+    return UserTextMessageContent(content);
   }
   if (content is List) {
-    return content
-        .map((item) => InputContent.fromJson(Map<String, dynamic>.from(item as Map)))
-        .toList();
+    return UserMultimodalMessageContent(
+      List<InputContent>.unmodifiable(
+        content
+            .map((item) => InputContent.fromJson(Map<String, dynamic>.from(item as Map)))
+            .toList(),
+      ),
+    );
   }
   throw AGUIValidationError(
     message: 'User message content must be a string or a list of content parts.',
@@ -592,15 +663,18 @@ final class AssistantMessage extends Message {
 }
 
 final class UserMessage extends Message {
-  @override
-  final Object content;
+  final UserMessageContent _content;
 
-  const UserMessage({
+  @override
+  UserMessageContent get content => _content;
+
+  UserMessage({
     required super.id,
-    required this.content,
+    required Object content,
     super.name,
     super.encryptedValue,
-  }) : super(role: MessageRole.user);
+  }) : _content = UserMessageContent.fromValue(content),
+       super(role: MessageRole.user);
 
   factory UserMessage.fromJson(Map<String, dynamic> json) {
     return UserMessage(
@@ -610,6 +684,14 @@ final class UserMessage extends Message {
       encryptedValue: JsonDecoder.optionalField<String>(json, 'encryptedValue'),
     );
   }
+
+  bool get isTextContent => content.textOrNull != null;
+
+  bool get isMultimodalContent => content.partsOrNull != null;
+
+  String? get textContent => content.textOrNull;
+
+  List<InputContent>? get contentParts => content.partsOrNull;
 
   @override
   UserMessage copyWith({

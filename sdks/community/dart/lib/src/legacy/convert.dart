@@ -397,6 +397,20 @@ String? _flattenMessageContentToText(Object? content) {
   if (content is String) {
     return content;
   }
+  if (content is UserMessageContent) {
+    if (content.textOrNull != null) {
+      return content.textOrNull;
+    }
+    final parts = (content.partsOrNull ?? const <InputContent>[])
+        .whereType<TextInputContent>()
+        .map((part) => part.text)
+        .where((text) => text.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join('\n');
+  }
   if (content is! List) {
     return null;
   }

@@ -26,11 +26,16 @@ class BackwardCompatibility_0_0_47 extends Middleware {
 
 Message _upgradeMessageContent(Message message) {
   final content = message.content;
-  if (content is! List) {
+  final parts = switch (content) {
+    UserMessageContent() => content.partsOrNull,
+    List() => content.whereType<Object?>().toList(),
+    _ => null,
+  };
+  if (parts == null) {
     return message;
   }
 
-  final upgraded = content.map((part) {
+  final upgraded = parts.map((part) {
     if (part is BinaryInputContent) {
       return _convertBinaryToNewFormat(part);
     }

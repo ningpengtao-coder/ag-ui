@@ -38,7 +38,7 @@ void main() {
       stateChangedCount = 0;
 
       agent = MutationTestAgent(
-        config: const AgentConfig(
+        config: AgentConfig(
           threadId: 'thread-mutations',
           initialMessages: [
             UserMessage(id: 'initial-msg', content: 'Initial message'),
@@ -71,7 +71,7 @@ void main() {
 
     test('addMessage notifies new message and messages changed for user message', () async {
       agent.addMessage(
-        const UserMessage(id: 'user-msg-1', content: 'Hello world'),
+        UserMessage(id: 'user-msg-1', content: 'Hello world'),
       );
 
       expect(agent.messages, hasLength(2));
@@ -84,6 +84,77 @@ void main() {
       expect(stateChangedCount, 0);
       expect(seenToolCalls, isEmpty);
       expect(callOrder, ['newMessage:user-msg-1', 'messagesChanged']);
+    });
+
+    test('addUserMessage supports text content', () async {
+      agent.addUserMessage(
+        id: 'user-msg-helper-text',
+        text: 'Hello from helper',
+      );
+
+      expect(agent.messages, hasLength(2));
+      final message = agent.messages.last as UserMessage;
+      expect(message.id, 'user-msg-helper-text');
+      expect(message.textContent, 'Hello from helper');
+      expect(message.contentParts, isNull);
+
+      await pumpAsyncNotifications();
+
+      expect(newMessageCount, 1);
+      expect(messagesChangedCount, 1);
+      expect(callOrder, ['newMessage:user-msg-helper-text', 'messagesChanged']);
+    });
+
+    test('addUserMessage supports multimodal content parts', () async {
+      agent.addUserMessage(
+        id: 'user-msg-helper-mm',
+        contentParts: [
+          TextInputContent(text: 'Look at this'),
+          ImageInputContent(
+            source: InputContentUrlSource(
+              value: 'https://example.com/image.png',
+              mimeType: 'image/png',
+            ),
+          ),
+        ],
+      );
+
+      expect(agent.messages, hasLength(2));
+      final message = agent.messages.last as UserMessage;
+      expect(message.id, 'user-msg-helper-mm');
+      expect(message.textContent, isNull);
+      expect(message.contentParts, hasLength(2));
+      expect(message.contentParts!.first, isA<TextInputContent>());
+      expect(message.contentParts![1], isA<ImageInputContent>());
+
+      await pumpAsyncNotifications();
+
+      expect(newMessageCount, 1);
+      expect(messagesChangedCount, 1);
+      expect(callOrder, ['newMessage:user-msg-helper-mm', 'messagesChanged']);
+    });
+
+    test('addUserMessage generates an id when omitted', () async {
+      agent.addUserMessage(text: 'Generated id');
+
+      final message = agent.messages.last as UserMessage;
+      expect(message.id, startsWith('msg-'));
+      expect(message.textContent, 'Generated id');
+    });
+
+    test('addUserMessage requires exactly one content source', () {
+      expect(
+        () => agent.addUserMessage(
+          text: 'Hello',
+          contentParts: [TextInputContent(text: 'Hello')],
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+
+      expect(
+        () => agent.addUserMessage(),
+        throwsA(isA<ArgumentError>()),
+      );
     });
 
     test('addMessage notifies each tool call before messages changed', () async {
@@ -130,7 +201,7 @@ void main() {
 
     test('addMessages emits one messages changed callback and handles empty list', () async {
       agent.addMessages(
-        const [
+        [
           UserMessage(id: 'msg-1', content: 'First'),
           AssistantMessage(
             id: 'msg-2',
@@ -172,7 +243,7 @@ void main() {
 
     test('setMessages only emits messages changed', () async {
       agent.setMessages(
-        const [
+        [
           UserMessage(id: 'new-msg-1', content: 'New conversation start'),
           AssistantMessage(id: 'new-msg-2', content: 'Assistant response'),
         ],
@@ -224,7 +295,7 @@ void main() {
       );
 
       orderedAgent.addMessage(
-        const UserMessage(id: 'test-msg', content: 'Test message'),
+        UserMessage(id: 'test-msg', content: 'Test message'),
       );
 
       var attempts = 0;

@@ -312,7 +312,7 @@ void main() {
     test('round-trips messages snapshot with tool calls', () {
       final original = MessagesSnapshotEvent(
         timestamp: 1698765432123,
-        messages: const [
+        messages: [
           UserMessage(id: 'msg-1', content: 'Hello'),
           AssistantMessage(
             id: 'msg-2',
@@ -342,7 +342,7 @@ void main() {
 
     test('round-trips a user message containing all supported modalities', () {
       final original = MessagesSnapshotEvent(
-        messages: const [
+        messages: [
           UserMessage(
             id: 'msg-user-all-modalities',
             content: [
@@ -379,7 +379,7 @@ void main() {
       );
 
       final decoded = decodeProto(encodeProto(original)) as MessagesSnapshotEvent;
-      final parts = (decoded.messages.single as UserMessage).content as List;
+      final parts = (decoded.messages.single as UserMessage).contentParts!;
       expect(parts, hasLength(5));
       expect(parts[1], isA<ImageInputContent>());
       expect(parts[2], isA<AudioInputContent>());
@@ -390,7 +390,7 @@ void main() {
 
     test('drops empty assistant toolCalls back to null', () {
       final original = MessagesSnapshotEvent(
-        messages: const [
+        messages: [
           AssistantMessage(
             id: 'msg-1',
             content: 'I processed your request.',
@@ -407,21 +407,21 @@ void main() {
 
     test('preserves missing assistant toolCalls as null', () {
       final original = MessagesSnapshotEvent(
-        messages: const [
+        messages: [
           UserMessage(id: 'msg-1', content: 'Hello'),
           AssistantMessage(id: 'msg-2', content: 'Hi there!'),
         ],
       );
 
       final decoded = decodeProto(encodeProto(original)) as MessagesSnapshotEvent;
-      expect((decoded.messages[0] as UserMessage).content, 'Hello');
+      expect((decoded.messages[0] as UserMessage).textContent, 'Hello');
       expect((decoded.messages[1] as AssistantMessage).content, 'Hi there!');
       expect((decoded.messages[1] as AssistantMessage).toolCalls, isNull);
     });
 
     test('round-trips multimodal user content parts', () {
       final original = MessagesSnapshotEvent(
-        messages: const [
+        messages: [
           UserMessage(
             id: 'msg-user-mm',
             content: [
@@ -446,7 +446,7 @@ void main() {
 
       final decoded = decodeProto(encodeProto(original)) as MessagesSnapshotEvent;
       final user = decoded.messages.single as UserMessage;
-      final parts = user.content as List;
+      final parts = user.contentParts!;
 
       expect(parts, hasLength(3));
       expect(parts[0], isA<TextInputContent>());
@@ -458,7 +458,7 @@ void main() {
 
     test('round-trips legacy binary content as document proto payload', () {
       final original = MessagesSnapshotEvent(
-        messages: const [
+        messages: [
           UserMessage(
             id: 'msg-binary',
             content: [
@@ -475,7 +475,7 @@ void main() {
 
       final decoded = decodeProto(encodeProto(original)) as MessagesSnapshotEvent;
       final user = decoded.messages.single as UserMessage;
-      final document = (user.content as List).single as DocumentInputContent;
+      final document = user.contentParts!.single as DocumentInputContent;
 
       expect(document.source, isA<InputContentDataSource>());
       expect((document.source as InputContentDataSource).mimeType, 'application/pdf');

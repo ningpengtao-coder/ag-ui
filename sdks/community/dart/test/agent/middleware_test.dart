@@ -313,7 +313,7 @@ class MessagesSnapshotAgent extends AbstractAgent {
     ),
     const TextMessageContentEvent(messageId: 'msg-1', delta: 'original'),
     const TextMessageEndEvent(messageId: 'msg-1'),
-    const MessagesSnapshotEvent(
+    MessagesSnapshotEvent(
       messages: [
         UserMessage(id: 'snap-1', content: 'question'),
         AssistantMessage(id: 'snap-2', content: 'answer'),
@@ -416,7 +416,7 @@ void main() {
 
       expect(agent.receivedInput, isNotNull);
       expect(agent.receivedInput!.parentRunId, isNull);
-      expect(agent.receivedInput!.messages[0].content, 'Hello world!');
+      expect((agent.receivedInput!.messages[0] as UserMessage).textContent, 'Hello world!');
       expect(agent.receivedInput!.messages[1].content, '');
     });
 
@@ -528,7 +528,7 @@ void main() {
 
       await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
 
-      final content = agent.receivedInput!.messages.single.content as List;
+      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content.single, isA<ImageInputContent>());
       expect((content.single as ImageInputContent).source, isA<InputContentDataSource>());
     });
@@ -543,7 +543,7 @@ void main() {
               threadId: 'thread-1',
               runId: 'run-1',
               state: const {},
-              messages: const [
+              messages: [
                 UserMessage(id: 'msg-1', content: 'hello world'),
               ],
               tools: const [],
@@ -554,7 +554,7 @@ void main() {
           )
           .drain<void>();
 
-      expect(agent.receivedInput!.messages.single.content, 'hello world');
+      expect((agent.receivedInput!.messages.single as UserMessage).textContent, 'hello world');
     });
 
     test('BackwardCompatibility_0_0_47 passes through text content parts unchanged', () async {
@@ -567,7 +567,7 @@ void main() {
               threadId: 'thread-1',
               runId: 'run-1',
               state: const {},
-              messages: const [
+              messages: [
                 UserMessage(
                   id: 'msg-1',
                   content: [TextInputContent(text: 'hello')],
@@ -581,8 +581,9 @@ void main() {
           )
           .drain<void>();
 
-      final content = agent.receivedInput!.messages.single.content as List;
-      expect(content.single, const TextInputContent(text: 'hello'));
+      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
+      expect(content.single, isA<TextInputContent>());
+      expect((content.single as TextInputContent).text, 'hello');
     });
 
     test('BackwardCompatibility_0_0_47 upgrades binary url audio content', () async {
@@ -595,7 +596,7 @@ void main() {
               threadId: 'thread-1',
               runId: 'run-1',
               state: const {},
-              messages: const [
+              messages: [
                 UserMessage(
                   id: 'msg-1',
                   content: [
@@ -614,7 +615,7 @@ void main() {
           )
           .drain<void>();
 
-      final content = agent.receivedInput!.messages.single.content as List;
+      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content.single, isA<AudioInputContent>());
       final source = (content.single as AudioInputContent).source as InputContentUrlSource;
       expect(source.value, 'https://example.com/audio.mp3');
@@ -631,7 +632,7 @@ void main() {
               threadId: 'thread-1',
               runId: 'run-1',
               state: const {},
-              messages: const [
+              messages: [
                 UserMessage(
                   id: 'msg-1',
                   content: [
@@ -651,7 +652,7 @@ void main() {
           )
           .drain<void>();
 
-      final content = agent.receivedInput!.messages.single.content as List;
+      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content[0], isA<VideoInputContent>());
       expect(content[1], isA<DocumentInputContent>());
     });
@@ -666,7 +667,7 @@ void main() {
               threadId: 'thread-1',
               runId: 'run-1',
               state: const {},
-              messages: const [
+              messages: [
                 UserMessage(
                   id: 'msg-1',
                   content: [
@@ -687,7 +688,7 @@ void main() {
           )
           .drain<void>();
 
-      final content = agent.receivedInput!.messages.single.content as List;
+      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       final image = content.single as ImageInputContent;
       expect(image.metadata, {'filename': 'photo.jpg'});
       expect(image.source, isA<InputContentDataSource>());
@@ -704,7 +705,7 @@ void main() {
               threadId: 'thread-1',
               runId: 'run-1',
               state: const {},
-              messages: const [
+              messages: [
                 UserMessage(
                   id: 'msg-1',
                   content: [
@@ -723,7 +724,7 @@ void main() {
           )
           .drain<void>();
 
-      final content = agent.receivedInput!.messages.single.content as List;
+      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content.single, isA<BinaryInputContent>());
       expect((content.single as BinaryInputContent).id, 'file-123');
     });
@@ -738,7 +739,7 @@ void main() {
               threadId: 'thread-1',
               runId: 'run-1',
               state: const {},
-              messages: const [
+              messages: [
                 UserMessage(
                   id: 'msg-1',
                   content: [
@@ -758,9 +759,10 @@ void main() {
           )
           .drain<void>();
 
-      final content = agent.receivedInput!.messages.single.content as List;
+      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content, hasLength(3));
-      expect(content[0], const TextInputContent(text: 'Look at this:'));
+      expect(content[0], isA<TextInputContent>());
+      expect((content[0] as TextInputContent).text, 'Look at this:');
       expect(content[1], isA<ImageInputContent>());
       expect(content[2], isA<ImageInputContent>());
       expect(((content[1] as ImageInputContent).source as InputContentDataSource).value, 'imgdata');
@@ -868,7 +870,7 @@ void main() {
       for (final middleware in [outer, inner]) {
         expect(middleware.capturedMessages, hasLength(2));
         expect(middleware.capturedMessages[0].id, 'snap-1');
-        expect(middleware.capturedMessages[0].content, 'question');
+        expect((middleware.capturedMessages[0] as UserMessage).textContent, 'question');
         expect(middleware.capturedMessages[1].id, 'snap-2');
         expect(middleware.capturedMessages[1].content, 'answer');
       }

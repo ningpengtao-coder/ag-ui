@@ -70,7 +70,7 @@ void main() {
         expect(json['id'], 'asst_001');
         expect(json['role'], 'assistant');
         expect(json['content'], 'I will help you with that');
-        expect(json['toolCalls'], isA<List>());
+        expect(json['toolCalls'], isA<List<dynamic>>());
         expect(json['toolCalls']!.length, 1);
 
         final decoded = AssistantMessage.fromJson(json);
@@ -132,6 +132,75 @@ void main() {
       });
     });
 
+    group('Multimodal UserMessage', () {
+      test('should expose typed accessors for text content', () {
+        final message = UserMessage(
+          id: 'user_text',
+          content: 'Hello multimodal',
+        );
+
+        expect(message.isTextContent, isTrue);
+        expect(message.isMultimodalContent, isFalse);
+        expect(message.textContent, 'Hello multimodal');
+        expect(message.contentParts, isNull);
+      });
+
+      test('should expose typed accessors for multimodal content parts', () {
+        final message = UserMessage(
+          id: 'user_multimodal',
+          content: [
+            TextInputContent(text: 'Check this out'),
+            ImageInputContent(
+              source: InputContentUrlSource(
+                value: 'https://example.com/image.png',
+                mimeType: 'image/png',
+              ),
+            ),
+            AudioInputContent(
+              source: InputContentDataSource(
+                value: 'UklGRiQAAABXQVZF',
+                mimeType: 'audio/wav',
+              ),
+            ),
+            VideoInputContent(
+              source: InputContentUrlSource(
+                value: 'https://example.com/video.mp4',
+              ),
+            ),
+            DocumentInputContent(
+              source: InputContentDataSource(
+                value: 'JVBERi0xLjcK',
+                mimeType: 'application/pdf',
+              ),
+              metadata: {'media_type': 'application/pdf'},
+            ),
+          ],
+        );
+
+        expect(message.isTextContent, isFalse);
+        expect(message.isMultimodalContent, isTrue);
+        expect(message.textContent, isNull);
+        expect(message.contentParts, isNotNull);
+        expect(message.contentParts!.map((item) => item.type).toList(), [
+          'text',
+          'image',
+          'audio',
+          'video',
+          'document',
+        ]);
+      });
+
+      test('should reject invalid content types in constructor', () {
+        expect(
+          () => UserMessage(
+            id: 'user_invalid',
+            content: 42,
+          ),
+          throwsA(isA<AGUIValidationError>()),
+        );
+      });
+    });
+
     group('Message Factory', () {
       test('should create correct message type based on role', () {
         final messages = [
@@ -143,11 +212,11 @@ void main() {
             'id': '5',
             'role': 'tool',
             'content': 'Tool result',
-            'toolCallId': 'call_001'
+            'toolCallId': 'call_001',
           },
         ];
 
-        final decoded = messages.map((json) => Message.fromJson(json)).toList();
+        final decoded = messages.map(Message.fromJson).toList();
 
         expect(decoded[0], isA<DeveloperMessage>());
         expect(decoded[1], isA<SystemMessage>());
@@ -182,7 +251,7 @@ void main() {
 
         final message = UserMessage.fromJson(json);
         expect(message.id, 'msg_unknown');
-        expect(message.content, 'User message');
+        expect(message.textContent, 'User message');
         
         // Verify unknown fields are not included in serialized output
         final serialized = message.toJson();

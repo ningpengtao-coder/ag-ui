@@ -29,6 +29,17 @@ Message _sanitizeMessageContent(Message message) {
     return message;
   }
 
+  if (content is UserMessageContent) {
+    if (content.textOrNull != null) {
+      return message;
+    }
+    final flattened = (content.partsOrNull ?? const <InputContent>[])
+        .whereType<TextInputContent>()
+        .map((part) => part.text)
+        .join();
+    return _copyMessageWithContent(message, flattened);
+  }
+
   if (content is List) {
     final flattened = content
         .whereType<TextInputContent>()

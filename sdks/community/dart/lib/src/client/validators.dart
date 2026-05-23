@@ -1,4 +1,5 @@
 import 'errors.dart';
+import '../types/message.dart';
 
 /// Validation utilities for AG-UI SDK
 class Validators {
@@ -127,7 +128,10 @@ class Validators {
     }
     
     // Content should be either a string or a structured object
-    if (content is! String && content is! Map && content is! List) {
+    if (content is! String &&
+        content is! Map &&
+        content is! List &&
+        content is! UserMessageContent) {
       throw ValidationError(
         'Message content must be a string, map, or list',
         field: 'content',

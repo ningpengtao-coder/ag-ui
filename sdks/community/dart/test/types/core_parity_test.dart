@@ -60,8 +60,8 @@ void main() {
         ],
       }) as UserMessage;
 
-      expect(parsed.content, isA<List>());
-      final content = parsed.content as List;
+      expect(parsed.contentParts, isNotNull);
+      final content = parsed.contentParts!;
       expect((content[0] as TextInputContent).text, 'Check this out');
       expect((content[1] as ImageInputContent).source, isA<InputContentUrlSource>());
     });

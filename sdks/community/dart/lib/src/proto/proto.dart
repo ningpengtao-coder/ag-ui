@@ -575,11 +575,9 @@ $proto_types.Message _toProtoMessage(Message message) {
       return $proto_types.Message(
         id: message.id,
         role: message.role.value,
-        content: content is String ? content : null,
+        content: content.textOrNull,
         name: message.name,
-        contentParts: content is List
-            ? content.whereType<InputContent>().map(_toProtoInputContent)
-            : null,
+        contentParts: content.partsOrNull?.map(_toProtoInputContent),
       );
     case ToolMessage():
       return $proto_types.Message(

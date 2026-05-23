@@ -150,7 +150,11 @@ AppliedState _applyTextMessageContent(AppliedState current, TextMessageContentEv
   }
 
   final target = current.messages[index];
-  final existingContent = target.content is String ? target.content as String : '';
+  final existingContent = switch (target) {
+    UserMessage() => target.textContent ?? '',
+    _ when target.content is String => target.content as String,
+    _ => '',
+  };
   final updated = _copyMessageWithStringContent(target, '$existingContent${event.delta}');
   final messages = List<Message>.from(current.messages)..[index] = updated;
   return current.copyWith(messages: messages);

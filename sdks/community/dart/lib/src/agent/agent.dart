@@ -227,6 +227,31 @@ abstract class AbstractAgent {
     }());
   }
 
+  void addUserMessage({
+    String? id,
+    String? text,
+    List<InputContent>? contentParts,
+    String? name,
+    String? encryptedValue,
+  }) {
+    final hasText = text != null;
+    final hasContentParts = contentParts != null;
+    if (hasText == hasContentParts) {
+      throw ArgumentError(
+        'Provide exactly one of text or contentParts when adding a user message.',
+      );
+    }
+
+    addMessage(
+      UserMessage(
+        id: id ?? _generateId('msg'),
+        content: text ?? List<InputContent>.from(contentParts!),
+        name: name,
+        encryptedValue: encryptedValue,
+      ),
+    );
+  }
+
   void addMessages(List<Message> newMessages) {
     messages = [...messages, ...newMessages];
     unawaited(() async {
@@ -652,7 +677,11 @@ abstract class AbstractAgent {
         agent: this,
         input: input,
         event: event,
-        textMessageBuffer: message?.content is String ? message!.content as String : '',
+        textMessageBuffer: switch (message) {
+          UserMessage() => message.textContent ?? '',
+          _ when message?.content is String => message!.content as String,
+          _ => '',
+        },
       ) as AgentEventContext<T>;
     }
     if (event is TextMessageEndEvent) {
@@ -663,7 +692,11 @@ abstract class AbstractAgent {
         agent: this,
         input: input,
         event: event,
-        textMessageBuffer: message?.content is String ? message!.content as String : '',
+        textMessageBuffer: switch (message) {
+          UserMessage() => message.textContent ?? '',
+          _ when message?.content is String => message!.content as String,
+          _ => '',
+        },
       ) as AgentEventContext<T>;
     }
     if (event is ToolCallArgsEvent || event is ToolCallEndEvent) {
