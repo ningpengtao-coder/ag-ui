@@ -4,7 +4,7 @@
 
 import asyncio
 import time
-from typing import Optional, Set
+from typing import Any, List, Optional, Set
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,9 @@ class ExecutionState:
         self,
         task: asyncio.Task,
         thread_id: str,
-        event_queue: asyncio.Queue
+        event_queue: asyncio.Queue,
+        long_running_tool_ids: Optional[Set[str]] = None,
+        interrupts: Optional[List[Any]] = None,
     ):
         """Initialize execution state.
 
@@ -31,6 +33,15 @@ class ExecutionState:
             task: The asyncio task running the ADK agent
             thread_id: The thread ID for this execution
             event_queue: Queue containing events to stream to client
+            long_running_tool_ids: Shared set of tool call IDs that are
+                long-running (HITL). Populated by the producer side
+                (EventTranslator's LRO branch and ClientProxyTool) before
+                TOOL_CALL_END is enqueued, so the consumer can distinguish
+                HITL tool calls from in-stream backend tool calls and skip
+                session-state writes for the latter. See issue #1652.
+            interrupts: Shared list the producer fills with the AG-UI
+                ``Interrupt`` objects the run paused on; the consumer reports
+                them in ``RUN_FINISHED.outcome``.
         """
         self.task = task
         self.thread_id = thread_id
@@ -38,6 +49,10 @@ class ExecutionState:
         self.start_time = time.time()
         self.is_complete = False
         self.pending_tool_calls: Set[str] = set()  # Track outstanding tool call IDs for HITL
+        self.long_running_tool_ids: Set[str] = (
+            long_running_tool_ids if long_running_tool_ids is not None else set()
+        )
+        self.interrupts: List[Any] = interrupts if interrupts is not None else []
 
         logger.debug(f"Created execution state for thread {thread_id}")
 

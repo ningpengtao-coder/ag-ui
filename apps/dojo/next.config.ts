@@ -36,16 +36,20 @@ const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
   ...(outputFileTracingRoot && { outputFileTracingRoot }),
   async rewrites() {
-    return [
-      {
-        source: "/ingest/static/:path*",
-        destination: "https://eu-assets.i.posthog.com/static/:path*",
-      },
-      {
-        source: "/ingest/:path*",
-        destination: "https://eu.i.posthog.com/:path*",
-      },
-    ];
+    return {
+      beforeFiles: [
+        {
+          source: "/ingest/static/:path*",
+          destination: "https://eu-assets.i.posthog.com/static/:path*",
+        },
+        {
+          source: "/ingest/:path*",
+          destination: "https://eu.i.posthog.com/:path*",
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
   },
   skipTrailingSlashRedirect: true,
   webpack: (config, { isServer }) => {
@@ -57,7 +61,12 @@ const nextConfig: NextConfig = {
 
     return config;
   },
-  serverExternalPackages: ["@mastra/libsql", "@copilotkit/runtime", "express"],
+  serverExternalPackages: [
+    "@google/adk",
+    "@mastra/libsql",
+    "@copilotkit/runtime",
+    "express",
+  ],
 };
 
 // Merge MDX config with Next.js config

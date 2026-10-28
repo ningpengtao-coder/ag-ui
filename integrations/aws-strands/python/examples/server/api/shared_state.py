@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from strands import Agent, tool
 from ag_ui_strands import StrandsAgent, create_strands_app, StrandsAgentConfig, ToolBehavior
 from server.model_factory import create_model
+from server.settings import cors_origins
 
 
 class SkillLevel(str, Enum):
@@ -114,20 +115,11 @@ async def recipe_state_from_args(context):
         return None
 
 
-async def recipe_state_from_result(context):
-    """Update recipe state based on tool result payload."""
-    if isinstance(context.result_data, dict):
-        return {"recipe": context.result_data}
-    return None
-
-
 shared_state_config = StrandsAgentConfig(
     state_context_builder=build_recipe_prompt,
     tool_behaviors={
         "generate_recipe": ToolBehavior(
-            skip_messages_snapshot=True,
             state_from_args=recipe_state_from_args,
-            state_from_result=recipe_state_from_result,
         )
     },
 )
@@ -161,5 +153,5 @@ agent = StrandsAgent(
 )
 
 # Create the FastAPI app
-app = create_strands_app(agent)
+app = create_strands_app(agent, origins=cors_origins())
 
