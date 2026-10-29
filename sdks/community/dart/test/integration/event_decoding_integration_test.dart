@@ -31,7 +31,7 @@ void main() {
 
         final event = decoder.decodeJson(pythonJson);
         expect(event, isA<RunStartedEvent>());
-        
+
         final runEvent = event as RunStartedEvent;
         expect(runEvent.threadId, equals('thread-123'));
         expect(runEvent.runId, equals('run-456'));
@@ -79,22 +79,26 @@ void main() {
 
         final event = decoder.decodeJson(pythonJson);
         expect(event, isA<MessagesSnapshotEvent>());
-        
+
         final messagesEvent = event as MessagesSnapshotEvent;
         expect(messagesEvent.messages.length, equals(3));
-        
+
         // Check user message
         expect(messagesEvent.messages[0].role, equals(MessageRole.user));
-        expect(messagesEvent.messages[0].content, equals('Generate a haiku'));
-        
+        expect(
+          (messagesEvent.messages[0] as UserMessage).textContent,
+          equals('Generate a haiku'),
+        );
+
         // Check assistant message with tool calls
         expect(messagesEvent.messages[1].role, equals(MessageRole.assistant));
         final assistantMsg = messagesEvent.messages[1] as AssistantMessage;
         expect(assistantMsg.toolCalls, isNotNull);
         expect(assistantMsg.toolCalls!.length, equals(1));
         expect(assistantMsg.toolCalls![0].id, equals('tool-call-1'));
-        expect(assistantMsg.toolCalls![0].function.name, equals('generate_haiku'));
-        
+        expect(
+            assistantMsg.toolCalls![0].function.name, equals('generate_haiku'));
+
         // Check tool message
         expect(messagesEvent.messages[2].role, equals(MessageRole.tool));
         final toolMsg = messagesEvent.messages[2] as ToolMessage;
@@ -111,7 +115,7 @@ void main() {
 
         final event = decoder.decodeJson(pythonJson);
         expect(event, isA<RunFinishedEvent>());
-        
+
         final runEvent = event as RunFinishedEvent;
         expect(runEvent.threadId, equals('thread-123'));
         expect(runEvent.runId, equals('run-456'));
@@ -121,19 +125,32 @@ void main() {
     group('TypeScript Dojo Events', () {
       test('decodes all text message lifecycle events', () {
         final events = [
-          {'type': 'TEXT_MESSAGE_START', 'messageId': 'msg-1', 'role': 'assistant'},
-          {'type': 'TEXT_MESSAGE_CONTENT', 'messageId': 'msg-1', 'delta': 'Hello '},
-          {'type': 'TEXT_MESSAGE_CONTENT', 'messageId': 'msg-1', 'delta': 'world!'},
+          {
+            'type': 'TEXT_MESSAGE_START',
+            'messageId': 'msg-1',
+            'role': 'assistant'
+          },
+          {
+            'type': 'TEXT_MESSAGE_CONTENT',
+            'messageId': 'msg-1',
+            'delta': 'Hello '
+          },
+          {
+            'type': 'TEXT_MESSAGE_CONTENT',
+            'messageId': 'msg-1',
+            'delta': 'world!'
+          },
           {'type': 'TEXT_MESSAGE_END', 'messageId': 'msg-1'},
         ];
 
-        final decodedEvents = events.map((json) => decoder.decodeJson(json)).toList();
-        
+        final decodedEvents =
+            events.map((json) => decoder.decodeJson(json)).toList();
+
         expect(decodedEvents[0], isA<TextMessageStartEvent>());
         expect(decodedEvents[1], isA<TextMessageContentEvent>());
         expect(decodedEvents[2], isA<TextMessageContentEvent>());
         expect(decodedEvents[3], isA<TextMessageEndEvent>());
-        
+
         // Verify content accumulation
         final content1 = (decodedEvents[1] as TextMessageContentEvent).delta;
         final content2 = (decodedEvents[2] as TextMessageContentEvent).delta;
@@ -166,18 +183,19 @@ void main() {
           },
         ];
 
-        final decodedEvents = events.map((json) => decoder.decodeJson(json)).toList();
-        
+        final decodedEvents =
+            events.map((json) => decoder.decodeJson(json)).toList();
+
         expect(decodedEvents[0], isA<ToolCallStartEvent>());
         expect(decodedEvents[1], isA<ToolCallArgsEvent>());
         expect(decodedEvents[2], isA<ToolCallEndEvent>());
         expect(decodedEvents[3], isA<ToolCallResultEvent>());
-        
+
         // Verify tool call details
         final startEvent = decodedEvents[0] as ToolCallStartEvent;
         expect(startEvent.toolCallName, equals('search'));
         expect(startEvent.parentMessageId, equals('msg-1'));
-        
+
         final resultEvent = decodedEvents[3] as ToolCallResultEvent;
         expect(resultEvent.content, equals('Found 5 results'));
         expect(resultEvent.role, equals('tool'));
@@ -192,10 +210,12 @@ void main() {
           {'type': 'THINKING_END'},
         ];
 
-        final decodedEvents = events.map((json) => decoder.decodeJson(json)).toList();
-        
+        final decodedEvents =
+            events.map((json) => decoder.decodeJson(json)).toList();
+
         expect(decodedEvents[0], isA<ThinkingStartEvent>());
-        expect((decodedEvents[0] as ThinkingStartEvent).title, equals('Planning approach'));
+        expect((decodedEvents[0] as ThinkingStartEvent).title,
+            equals('Planning approach'));
         expect(decodedEvents[1], isA<ThinkingTextMessageStartEvent>());
         expect(decodedEvents[2], isA<ThinkingTextMessageContentEvent>());
         expect(decodedEvents[3], isA<ThinkingTextMessageEndEvent>());
@@ -240,12 +260,15 @@ void main() {
           {'type': 'STEP_FINISHED', 'stepName': 'Analyzing request'},
         ];
 
-        final decodedEvents = events.map((json) => decoder.decodeJson(json)).toList();
-        
+        final decodedEvents =
+            events.map((json) => decoder.decodeJson(json)).toList();
+
         expect(decodedEvents[0], isA<StepStartedEvent>());
-        expect((decodedEvents[0] as StepStartedEvent).stepName, equals('Analyzing request'));
+        expect((decodedEvents[0] as StepStartedEvent).stepName,
+            equals('Analyzing request'));
         expect(decodedEvents[1], isA<StepFinishedEvent>());
-        expect((decodedEvents[1] as StepFinishedEvent).stepName, equals('Analyzing request'));
+        expect((decodedEvents[1] as StepFinishedEvent).stepName,
+            equals('Analyzing request'));
       });
     });
 
@@ -253,30 +276,40 @@ void main() {
       test('processes SSE stream with mixed events', () async {
         final sseController = StreamController<SseMessage>();
         final eventStream = adapter.fromSseStream(sseController.stream);
-        
+
         final events = <BaseEvent>[];
         final subscription = eventStream.listen(events.add);
-        
+
         // Simulate server stream
         sseController.add(SseMessage(
-          data: jsonEncode({'type': 'RUN_STARTED', 'thread_id': 't1', 'run_id': 'r1'}),
+          data: jsonEncode(
+              {'type': 'RUN_STARTED', 'thread_id': 't1', 'run_id': 'r1'}),
         ));
         sseController.add(SseMessage(
-          data: jsonEncode({'type': 'TEXT_MESSAGE_START', 'messageId': 'm1', 'role': 'assistant'}),
+          data: jsonEncode({
+            'type': 'TEXT_MESSAGE_START',
+            'messageId': 'm1',
+            'role': 'assistant'
+          }),
         ));
         sseController.add(SseMessage(
-          data: jsonEncode({'type': 'TEXT_MESSAGE_CONTENT', 'messageId': 'm1', 'delta': 'Hello'}),
+          data: jsonEncode({
+            'type': 'TEXT_MESSAGE_CONTENT',
+            'messageId': 'm1',
+            'delta': 'Hello'
+          }),
         ));
         sseController.add(SseMessage(
           data: jsonEncode({'type': 'TEXT_MESSAGE_END', 'messageId': 'm1'}),
         ));
         sseController.add(SseMessage(
-          data: jsonEncode({'type': 'RUN_FINISHED', 'thread_id': 't1', 'run_id': 'r1'}),
+          data: jsonEncode(
+              {'type': 'RUN_FINISHED', 'thread_id': 't1', 'run_id': 'r1'}),
         ));
-        
+
         await sseController.close();
         await subscription.cancel();
-        
+
         expect(events.length, equals(5));
         expect(events.first, isA<RunStartedEvent>());
         expect(events.last, isA<RunFinishedEvent>());
@@ -290,38 +323,44 @@ void main() {
           skipInvalidEvents: true,
           onError: (error, stack) => errors.add(error),
         );
-        
+
         final events = <BaseEvent>[];
         final subscription = eventStream.listen(events.add);
-        
+
         // Mix valid and invalid events
         sseController.add(SseMessage(
-          data: jsonEncode({'type': 'RUN_STARTED', 'thread_id': 't1', 'run_id': 'r1'}),
+          data: jsonEncode(
+              {'type': 'RUN_STARTED', 'thread_id': 't1', 'run_id': 'r1'}),
         ));
         sseController.add(SseMessage(data: 'not json')); // Invalid
         sseController.add(SseMessage(
           data: jsonEncode({'type': 'INVALID_TYPE'}), // Unknown type
         ));
         sseController.add(SseMessage(
-          data: jsonEncode({'type': 'TEXT_MESSAGE_CONTENT', 'messageId': 'm1', 'delta': ''}), // Invalid: empty delta
+          data: jsonEncode({
+            'type': 'TEXT_MESSAGE_CONTENT',
+            'messageId': 'm1',
+            'delta': ''
+          }), // Legal keep-alive delta
         ));
         sseController.add(SseMessage(
-          data: jsonEncode({'type': 'RUN_FINISHED', 'thread_id': 't1', 'run_id': 'r1'}),
+          data: jsonEncode(
+              {'type': 'RUN_FINISHED', 'thread_id': 't1', 'run_id': 'r1'}),
         ));
-        
+
         await sseController.close();
         await subscription.cancel();
-        
-        // Should only get valid events
-        expect(events.length, equals(2));
+
+        // The unknown event type survives decoding and is dropped later, at
+        // the enforcement stage; only the unparseable frame is rejected here.
+        expect(events.length, equals(4));
         expect(events[0], isA<RunStartedEvent>());
-        expect(events[1], isA<RunFinishedEvent>());
-        
-        // Should have collected errors for invalid events
-        expect(errors.length, equals(3));
+        expect(events[1], isA<UnknownEvent>());
+        expect(events[2], isA<TextMessageContentEvent>());
+        expect(events[3], isA<RunFinishedEvent>());
+
+        expect(errors.length, equals(1));
         expect(errors[0], isA<DecodingError>());
-        expect(errors[1], isA<DecodingError>());
-        expect(errors[2], isA<DecodingError>()); // Validation errors are wrapped in DecodingError
       });
 
       test('handles unknown fields for forward compatibility', () {
@@ -336,7 +375,7 @@ void main() {
 
         final event = decoder.decodeJson(jsonWithExtra);
         expect(event, isA<TextMessageStartEvent>());
-        
+
         final textEvent = event as TextMessageStartEvent;
         expect(textEvent.messageId, equals('msg-1'));
         expect(textEvent.role, equals(TextMessageRole.assistant));
@@ -350,21 +389,20 @@ void main() {
           throwsA(isA<DecodingError>()),
         );
 
-        // Empty required field - validation error is wrapped in DecodingError
-        expect(
-          () => decoder.decodeJson({
-            'type': 'TEXT_MESSAGE_CONTENT',
-            'messageId': 'msg-1',
-            'delta': '', // Empty delta not allowed
-          }),
-          throwsA(isA<DecodingError>()),
-        );
+        // An empty delta is a legal keep-alive, not a missing field.
+        final keepAlive = decoder.decodeJson({
+          'type': 'TEXT_MESSAGE_CONTENT',
+          'messageId': 'msg-1',
+          'delta': '',
+        });
+        expect(keepAlive, isA<TextMessageContentEvent>());
+        expect((keepAlive as TextMessageContentEvent).delta, '');
 
-        // Invalid event type
-        expect(
-          () => decoder.decodeJson({'type': 'NOT_A_REAL_EVENT'}),
-          throwsA(isA<DecodingError>()),
-        );
+        // An unknown event type is kept as UnknownEvent, not rejected: only
+        // enforcement may drop it, after every middleware has had a look.
+        final unknown = decoder.decodeJson({'type': 'NOT_A_REAL_EVENT'});
+        expect(unknown, isA<UnknownEvent>());
+        expect((unknown as UnknownEvent).rawType, 'NOT_A_REAL_EVENT');
       });
     });
 
@@ -377,20 +415,23 @@ void main() {
           skipInvalidEvents: true,
           onError: (error, stack) => errors.add(error),
         );
-        
+
         final events = <BaseEvent>[];
         final subscription = eventStream.listen(events.add);
-        
+
         // Send a mix of valid and invalid SSE data
-        rawController.add('data: {"type":"RUN_STARTED","thread_id":"t1","run_id":"r1"}\n\n');
+        rawController.add(
+            'data: {"type":"RUN_STARTED","thread_id":"t1","run_id":"r1"}\n\n');
         rawController.add('data: {broken json\n\n'); // Invalid JSON
-        rawController.add('data: {"type":"TEXT_MESSAGE_START","messageId":"m1"}\n\n');
+        rawController
+            .add('data: {"type":"TEXT_MESSAGE_START","messageId":"m1"}\n\n');
         rawController.add('data: : \n\n'); // SSE comment/keepalive
-        rawController.add('data: {"type":"TEXT_MESSAGE_END","messageId":"m1"}\n\n');
-        
+        rawController
+            .add('data: {"type":"TEXT_MESSAGE_END","messageId":"m1"}\n\n');
+
         await rawController.close();
         await subscription.cancel();
-        
+
         // Should process valid events and skip invalid ones
         expect(events.length, equals(3));
         expect(errors.length, equals(1)); // Only the broken JSON
@@ -402,38 +443,44 @@ void main() {
           sseController.stream,
           skipInvalidEvents: true,
         );
-        
+
         final eventTypes = <String>[];
         final subscription = eventStream.listen((event) {
           eventTypes.add(event.eventType.value);
         });
-        
+
         // Send events in specific order with errors in between
         sseController.add(SseMessage(
-          data: jsonEncode({'type': 'RUN_STARTED', 'thread_id': 't1', 'run_id': 'r1'}),
+          data: jsonEncode(
+              {'type': 'RUN_STARTED', 'thread_id': 't1', 'run_id': 'r1'}),
         ));
         sseController.add(SseMessage(data: 'invalid')); // Error - skipped
         sseController.add(SseMessage(
           data: jsonEncode({'type': 'TEXT_MESSAGE_START', 'messageId': 'm1'}),
         ));
-        sseController.add(SseMessage(data: '{"type": "UNKNOWN"}')); // Error - skipped
+        sseController
+            .add(SseMessage(data: '{"type": "UNKNOWN"}')); // Error - skipped
         sseController.add(SseMessage(
           data: jsonEncode({'type': 'TEXT_MESSAGE_END', 'messageId': 'm1'}),
         ));
         sseController.add(SseMessage(
-          data: jsonEncode({'type': 'RUN_FINISHED', 'thread_id': 't1', 'run_id': 'r1'}),
+          data: jsonEncode(
+              {'type': 'RUN_FINISHED', 'thread_id': 't1', 'run_id': 'r1'}),
         ));
-        
+
         await sseController.close();
         await subscription.cancel();
-        
+
         // Order should be preserved for valid events
-        expect(eventTypes, equals([
-          'RUN_STARTED',
-          'TEXT_MESSAGE_START',
-          'TEXT_MESSAGE_END',
-          'RUN_FINISHED',
-        ]));
+        expect(
+            eventTypes,
+            equals([
+              'RUN_STARTED',
+              'TEXT_MESSAGE_START',
+              'UNKNOWN',
+              'TEXT_MESSAGE_END',
+              'RUN_FINISHED',
+            ]));
       });
     });
   });

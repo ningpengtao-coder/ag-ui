@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../apply/json_patch.dart';
+import '../diagnostics.dart';
 import '../events/events.dart';
 import '../types/message.dart';
 import '../types/tool.dart';
@@ -126,7 +127,7 @@ LegacyEventTransformer convertToLegacyEvents(
         yield {
           'type': 'ActionExecutionResult',
           'actionExecutionId': event.toolCallId,
-          'result': event.content,
+          'result': _flattenLegacyResult(event.toolCallId, event.content),
           'actionName': toolCallNames[event.toolCallId] ?? 'unknown',
         };
         continue;
@@ -169,7 +170,16 @@ LegacyEventTransformer convertToLegacyEvents(
       }
 
       if (event is StateDeltaEvent) {
-        currentState = _sanitizeState(applyJsonPatch(currentState, event.delta));
+        Object? patched;
+        try {
+          patched = applyJsonPatch(currentState, event.delta);
+        } on Object catch (error) {
+          // One unappliable patch must not take the bridge down mid-run, so it
+          // is warned about and skipped, matching the reducer in apply/.
+          AgUiDiagnostics.warn('Failed to apply legacy state patch: $error');
+          continue;
+        }
+        currentState = _sanitizeState(patched);
         yield _legacyStateMessage(
           threadId: threadId,
           agentName: agentName,
@@ -193,8 +203,12 @@ LegacyEventTransformer convertToLegacyEvents(
           active: true,
           state: {
             ...?_asJsonObject(currentState),
-            if (syncedMessages != null)
-              'messages': convertMessagesToLegacyFormat(syncedMessages),
+            // The raw AG-UI messages, as the reference bridge sends them here;
+            // the legacy-shaped ones go out with RUN_FINISHED instead. The two
+            // shapes are not interchangeable, so they are reproduced as-is.
+            'messages': event.messages
+                .map((message) => message.toJson())
+                .toList(),
           },
         );
         continue;
@@ -205,10 +219,22 @@ LegacyEventTransformer convertToLegacyEvents(
       }
 
       if (event is RunFinishedEvent) {
+        List<Map<String, dynamic>>? legacyMessages;
+        if (syncedMessages != null) {
+          try {
+            legacyMessages = convertMessagesToLegacyFormat(syncedMessages);
+          } on Object catch (error) {
+            // Surface the failure on the stream instead of tearing it down with
+            // an opaque exception: a tool call whose arguments are not JSON is
+            // the producer's defect, and the consumer still needs a terminal
+            // event it can act on.
+            yield {'type': 'RunError', 'message': error.toString()};
+            continue;
+          }
+        }
         final finalState = <String, dynamic>{
           ...?_asJsonObject(currentState),
-          if (syncedMessages != null)
-            'messages': convertMessagesToLegacyFormat(syncedMessages),
+          if (legacyMessages != null) 'messages': legacyMessages,
         };
         if (finalState.isNotEmpty) {
           yield _legacyStateMessage(
@@ -330,9 +356,31 @@ Map<String, dynamic> _legacyStateMessage({
     'runId': runId,
     'running': running,
     'role': 'assistant',
-    'state': json.encode(_sanitizeState(state)),
+    // Serialized as given: [currentState] was sanitized where it was assigned,
+    // and the snapshot / finished branches carry `messages` they added on
+    // purpose, which sanitizing here would strip back out.
+    'state': json.encode(state),
     'active': active,
   };
+}
+
+/// The string a legacy `ActionExecutionResult` can hold, from content that may
+/// be parts. Text parts are concatenated; anything else is dropped with a
+/// warning naming the call, because the legacy consumer cannot receive it.
+String _flattenLegacyResult(String toolCallId, Object content) {
+  if (content is! List) {
+    return content is String ? content : '';
+  }
+
+  final parts = content.whereType<InputContent>().toList();
+  if (parts.any((part) => part is! TextInputContent)) {
+    AgUiDiagnostics.warn(
+      "The result of tool call '$toolCallId' carries content parts the legacy "
+      'protocol cannot represent; only its text parts are bridged and the rest '
+      'is dropped.',
+    );
+  }
+  return parts.whereType<TextInputContent>().map((part) => part.text).join();
 }
 
 Object? _predictStateUpdate(

@@ -21,6 +21,15 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
 export 'patch.pbenum.dart';
 
+/// A single RFC 6902 operation. Exactly one of the operation shapes must match,
+/// discriminated by op. Unlike the protocol's own objects, the operations are
+/// open: RFC 6902 section 4 requires members an operation does not define to be
+/// ignored rather than rejected, so a remove carrying a leftover value is a valid
+/// patch. Two of the RFC's rules are relations between values rather than shapes,
+/// so no static schema can express them and neither is checked here: a move whose
+/// from is a proper prefix of its path (section 4.4), and any operation whose
+/// pointer does not resolve in the target document. Both are the applier's to
+/// reject.
 class JsonPatchOperation extends $pb.GeneratedMessage {
   factory JsonPatchOperation({
     JsonPatchOperationType? op,
@@ -76,6 +85,7 @@ class JsonPatchOperation extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<JsonPatchOperation>(create);
   static JsonPatchOperation? _defaultInstance;
 
+  /// Which operation this is.
   @$pb.TagNumber(1)
   JsonPatchOperationType get op => $_getN(0);
   @$pb.TagNumber(1)
@@ -85,6 +95,7 @@ class JsonPatchOperation extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearOp() => $_clearField(1);
 
+  /// Where to insert the value.
   @$pb.TagNumber(2)
   $core.String get path => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -94,6 +105,7 @@ class JsonPatchOperation extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearPath() => $_clearField(2);
 
+  /// Where the value is moved from.
   @$pb.TagNumber(3)
   $core.String get from => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -103,6 +115,8 @@ class JsonPatchOperation extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearFrom() => $_clearField(3);
 
+  /// The value to insert. Any JSON value, including null, which is a legitimate
+  /// thing to add.
   @$pb.TagNumber(4)
   $0.Value get value => $_getN(3);
   @$pb.TagNumber(4)

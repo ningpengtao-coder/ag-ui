@@ -6,15 +6,14 @@ class RecordingClient extends AgUiClient {
     String endpoint,
     SimpleRunAgentInput input,
     CancelToken? cancelToken,
-  )
-  handler;
+  ) handler;
 
   String? lastEndpoint;
   SimpleRunAgentInput? lastInput;
   CancelToken? lastCancelToken;
 
   RecordingClient({required this.handler})
-    : super(config: AgUiClientConfig(baseUrl: 'https://api.example.com'));
+      : super(config: AgUiClientConfig(baseUrl: 'https://api.example.com'));
 
   @override
   Stream<BaseEvent> runAgent(
@@ -31,11 +30,14 @@ class RecordingClient extends AgUiClient {
 
 void main() {
   group('HttpAgent', () {
-    test('runAgent forwards endpoint, input, and active cancel token', () async {
+    test('runAgent forwards endpoint, input, and active cancel token',
+        () async {
       final client = RecordingClient(
-        handler: (endpoint, input, cancelToken) => Stream<BaseEvent>.fromIterable([
+        handler: (endpoint, input, cancelToken) =>
+            Stream<BaseEvent>.fromIterable([
           RunStartedEvent(threadId: input.threadId!, runId: input.runId!),
-          RunFinishedEvent(threadId: input.threadId!, runId: input.runId!, result: 'ok'),
+          RunFinishedEvent(
+              threadId: input.threadId!, runId: input.runId!, result: 'ok'),
         ]),
       );
       final agent = HttpAgent(
@@ -43,27 +45,53 @@ void main() {
           client: client,
           endpoint: 'agents/demo',
           threadId: 'thread-http',
-          initialMessages: const [
+          initialMessages: [
             UserMessage(id: 'msg-user', content: 'hello'),
           ],
         ),
       );
 
-      final result = await agent.runAgent(const RunAgentParameters(runId: 'run-http'));
+      final result =
+          await agent.runAgent(const RunAgentParameters(runId: 'run-http'));
 
       expect(result.result, 'ok');
       expect(client.lastEndpoint, 'agents/demo');
       expect(client.lastInput, isNotNull);
       expect(client.lastInput!.threadId, 'thread-http');
       expect(client.lastInput!.runId, 'run-http');
-      expect(client.lastInput!.messages?.map((message) => message.id), ['msg-user']);
+      expect(client.lastInput!.messages?.map((message) => message.id),
+          ['msg-user']);
       expect(client.lastCancelToken, same(agent.cancelToken));
       expect(client.lastCancelToken?.isCancelled, isFalse);
     });
 
-    test('abortRun cancels the current token and the next run gets a fresh token', () async {
+    test('an agent with a null state sends no state key on the wire', () {
       final client = RecordingClient(
-        handler: (endpoint, input, cancelToken) => Stream<BaseEvent>.fromIterable([
+        handler: (endpoint, input, cancelToken) =>
+            const Stream<BaseEvent>.empty(),
+      );
+      final agent = HttpAgent(
+        HttpAgentConfig(client: client, endpoint: 'agents/demo'),
+      );
+      // A STATE_SNAPSHOT may set the agent's state to null; the 1.0 schema
+      // forbids an explicit null in the input's `state` slot, so the next run
+      // must carry no key at all.
+      agent.setState(null);
+
+      final input = agent.prepareRunAgentInput(const RunAgentParameters());
+
+      expect(
+        SimpleRunAgentInput.fromRunAgentInput(input).toJson().containsKey('state'),
+        isFalse,
+      );
+    });
+
+    test(
+        'abortRun cancels the current token and the next run gets a fresh token',
+        () async {
+      final client = RecordingClient(
+        handler: (endpoint, input, cancelToken) =>
+            Stream<BaseEvent>.fromIterable([
           RunStartedEvent(threadId: input.threadId!, runId: input.runId!),
           RunFinishedEvent(threadId: input.threadId!, runId: input.runId!),
         ]),
@@ -91,9 +119,12 @@ void main() {
       expect(client.lastCancelToken, same(agent.cancelToken));
     });
 
-    test('clone preserves cancelled token state without sharing the same token instance', () async {
+    test(
+        'clone preserves cancelled token state without sharing the same token instance',
+        () async {
       final client = RecordingClient(
-        handler: (endpoint, input, cancelToken) => const Stream<BaseEvent>.empty(),
+        handler: (endpoint, input, cancelToken) =>
+            const Stream<BaseEvent>.empty(),
       );
       final agent = HttpAgent(
         HttpAgentConfig(

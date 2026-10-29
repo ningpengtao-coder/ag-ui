@@ -355,6 +355,52 @@ All common APIs are exported from `package:ag_ui/ag_ui.dart`, including:
 - middleware and interrupt helpers
 - protobuf and encoder utilities
 
+## Regenerating The Protobuf Bindings
+
+The protobuf bindings in `lib/src/proto/generated/` are generated, never
+hand-edited. Their source of truth is the TypeScript package
+(`sdks/typescript/packages/proto/src/proto/`), which is itself generated from
+`spec/1.0/schema.json` — so a protocol change flows
+`schema.json` → `.proto` → Dart bindings, and syncing the repository with
+upstream is followed by one command:
+
+```sh
+cd sdks/community/dart
+dart run tool/generate_proto.dart
+```
+
+Requirements: `protoc` 3.15 or newer (the schema uses proto3 `optional`
+fields) and the Dart plugin from `dart pub global activate protoc_plugin`. The
+script finds both automatically — `protoc` on `PATH`, the plugin in the pub
+cache — and prints the version of each, because the output depends on them: an
+unexplained diff usually means one of them changed.
+
+Override the search when the defaults are wrong, and pass a directory holding
+`google/protobuf/*.proto` if `protoc` is not installed with its includes:
+
+```sh
+dart run tool/generate_proto.dart \
+  --protoc=/path/to/protoc \
+  --protoc-gen-dart=/path/to/protoc-gen-dart \
+  --include=/path/to/protobuf/include
+```
+
+The same can be set through the `PROTOC` and `PROTOC_GEN_DART` environment
+variables. Generation happens in a scratch directory and only replaces
+`lib/src/proto/generated/` once `protoc` succeeds, so a failed run leaves the
+committed bindings untouched, and output for a renamed `.proto` cannot linger.
+
+The script regenerates the wire types only. The mapping layer,
+[`lib/src/proto/proto.dart`](lib/src/proto/proto.dart), is hand-written: when a
+regeneration adds an event or a field, extend its `_toProto*` / `_fromProto*`
+functions — an unmapped event throws instead of being silently dropped — and
+add a case to the round-trip list in `test/proto/proto_test.dart`. Then run:
+
+```sh
+dart analyze lib test tool
+dart test
+```
+
 ## Documentation
 
 - Concepts & architecture: [`docs/concepts`](https://docs.ag-ui.com/concepts/architecture)

@@ -19,8 +19,8 @@ class Encoder {
     return message.toJson();
   }
 
-  /// Encode ToolResult to JSON
-  Map<String, dynamic> encodeToolResult(ToolResult result) {
+  /// Encode a tool result payload to JSON
+  Map<String, dynamic> encodeToolResult(ToolResultPayload result) {
     return {
       'toolCallId': result.toolCallId,
       'result': result.result,
@@ -35,14 +35,18 @@ class Decoder {
   const Decoder();
 }
 
-/// ToolResult model for submitting tool execution results
-class ToolResult {
+/// A tool execution payload for the legacy client-side submission shape.
+///
+/// Named apart from `ToolResult` in `types/tool.dart` (whose `content` is the
+/// protocol's tool-message content) so both can be exported from the package
+/// entry point without one hiding the other.
+class ToolResultPayload {
   final String toolCallId;
   final dynamic result;
   final String? error;
   final Map<String, dynamic>? metadata;
 
-  const ToolResult({
+  const ToolResultPayload({
     required this.toolCallId,
     required this.result,
     this.error,

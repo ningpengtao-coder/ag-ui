@@ -82,7 +82,10 @@ class A2UIMiddleware extends Middleware {
           continue;
         }
 
-        final parsed = tryParseA2UIOperations(event.content);
+        if (event.content is! String) {
+          continue;
+        }
+        final parsed = tryParseA2UIOperations(event.content as String);
         if (parsed == null) {
           continue;
         }
@@ -179,7 +182,8 @@ class A2UIMiddleware extends Middleware {
       return input;
     }
 
-    final filtered = input.tools.where((tool) => tool.name != toolName).toList();
+    final filtered =
+        input.tools.where((tool) => tool.name != toolName).toList();
     return input.copyWith(
       tools: [
         ...filtered,
@@ -197,9 +201,8 @@ class A2UIMiddleware extends Middleware {
     final description =
         'A2UI render tool usage guide — how to call $toolName with valid '
         'arguments.';
-    final filtered = input.context
-        .where((item) => item.description != description)
-        .toList();
+    final filtered =
+        input.context.where((item) => item.description != description).toList();
 
     return input.copyWith(
       context: [
@@ -234,10 +237,10 @@ class A2UIMiddleware extends Middleware {
     final actionName = action.name ?? 'unknown_action';
     final surfaceId = action.surfaceId ?? 'unknown_surface';
     final componentId = action.sourceComponentId;
-    final contextValue = action.context == null ? '{}' : jsonEncode(action.context);
+    final contextValue =
+        action.context == null ? '{}' : jsonEncode(action.context);
 
-    var message =
-        'User performed action "$actionName" on surface "$surfaceId"';
+    var message = 'User performed action "$actionName" on surface "$surfaceId"';
     if (componentId != null && componentId.isNotEmpty) {
       message += ' (component: $componentId)';
     }
@@ -251,7 +254,8 @@ class A2UIMiddleware extends Middleware {
     final operationsBySurface = <String, List<Map<String, dynamic>>>{};
     for (final operation in operations) {
       final surfaceId = getOperationSurfaceId(operation) ?? 'default';
-      operationsBySurface.putIfAbsent(surfaceId, () => <Map<String, dynamic>>[]);
+      operationsBySurface.putIfAbsent(
+          surfaceId, () => <Map<String, dynamic>>[]);
       operationsBySurface[surfaceId]!.add(operation);
     }
 
@@ -284,7 +288,9 @@ class A2UIMiddleware extends Middleware {
     final catalogId = _normalizeCatalogId(rawCatalogId);
     final emittedEvents = <BaseEvent>[];
 
-    if (result != null && result.items.length > streaming.emittedCount && surfaceId != null) {
+    if (result != null &&
+        result.items.length > streaming.emittedCount &&
+        surfaceId != null) {
       final components = result.items
           .whereType<Map<Object?, Object?>>()
           .map(Map<String, dynamic>.from)

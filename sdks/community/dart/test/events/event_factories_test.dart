@@ -49,5 +49,48 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('carries metadata, rawEvent and subagentRunId onto the event', () {
+      final raw = {'wire': 'frame'};
+      final event = createTextMessageStartEvent(
+        messageId: 'msg-1',
+        subagentRunId: 'sub-1',
+        metadata: const {'trace': 'abc'},
+        rawEvent: raw,
+        timestamp: 42,
+      );
+
+      expect(event.subagentRunId, 'sub-1');
+      expect(event.metadata, {'trace': 'abc'});
+      expect(event.rawEvent, same(raw));
+      expect(event.timestamp, 42);
+    });
+
+    test('keeps tool call result parts rather than flattening them', () {
+      final event = createToolCallResultEvent(
+        messageId: 'msg-1',
+        toolCallId: 'tc-1',
+        content: const [
+          TextInputContent(text: 'see'),
+          ImageInputContent(
+            source: InputContentUrlSource(value: 'https://example.com/i.png'),
+          ),
+        ],
+      );
+
+      expect(event.content, isA<List>());
+      expect((event.content as List), hasLength(2));
+      expect(event.toJson()['content'], isA<List>());
+    });
+
+    test('creates a messages snapshot from typed messages', () {
+      final event = createMessagesSnapshotEvent(
+        messages: [UserMessage(id: 'msg-1', content: 'hello')],
+        metadata: const {'source': 'test'},
+      );
+
+      expect(event.messages.single, isA<UserMessage>());
+      expect(event.toJson()['messages'], hasLength(1));
+    });
   });
 }

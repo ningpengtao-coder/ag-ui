@@ -61,8 +61,10 @@ void main() {
 
       expect(encoded, isA<Map<String, dynamic>>());
       expect(encoded['messages'], isEmpty);
-      // These fields are always included with defaults for API consistency
-      expect(encoded['state'], equals({}));
+      // These fields are always included with defaults for API consistency.
+      // `state` is optional and non-nullable in the 1.0 schema, so an unset
+      // state is an ABSENT key rather than an explicit null.
+      expect(encoded.containsKey('state'), isFalse);
       expect(encoded['tools'], isEmpty);
       expect(encoded['context'], isEmpty);
       expect(encoded['forwardedProps'], equals({}));
@@ -96,7 +98,7 @@ void main() {
     });
 
     test('encodeToolResult encodes ToolResult with all fields', () {
-      final result = codec.ToolResult(
+      final result = codec.ToolResultPayload(
         toolCallId: 'call_123',
         result: {'data': 'test result'},
         error: 'Some error occurred',
@@ -113,7 +115,7 @@ void main() {
     });
 
     test('encodeToolResult handles result without optional fields', () {
-      final result = codec.ToolResult(
+      final result = codec.ToolResultPayload(
         toolCallId: 'call_456',
         result: 'Simple result',
       );
@@ -136,7 +138,7 @@ void main() {
         'number': 42.5,
       };
 
-      final result = codec.ToolResult(
+      final result = codec.ToolResultPayload(
         toolCallId: 'call_789',
         result: complexResult,
       );
@@ -147,7 +149,7 @@ void main() {
     });
 
     test('encodeToolResult handles null result', () {
-      final result = codec.ToolResult(
+      final result = codec.ToolResultPayload(
         toolCallId: 'call_null',
         result: null,
       );
@@ -172,9 +174,9 @@ void main() {
     });
   });
 
-  group('ToolResult', () {
+  group('ToolResultPayload', () {
     test('creates with required fields only', () {
-      final result = codec.ToolResult(
+      final result = codec.ToolResultPayload(
         toolCallId: 'id_123',
         result: 'test',
       );
@@ -186,7 +188,7 @@ void main() {
     });
 
     test('creates with all fields', () {
-      final result = codec.ToolResult(
+      final result = codec.ToolResultPayload(
         toolCallId: 'id_456',
         result: {'key': 'value'},
         error: 'Error message',
@@ -200,7 +202,7 @@ void main() {
     });
 
     test('const constructor works', () {
-      const result = codec.ToolResult(
+      const result = codec.ToolResultPayload(
         toolCallId: 'const_id',
         result: 'const_result',
       );
@@ -211,23 +213,23 @@ void main() {
 
     test('handles different result types', () {
       // String result
-      var result = codec.ToolResult(toolCallId: '1', result: 'string');
+      var result = codec.ToolResultPayload(toolCallId: '1', result: 'string');
       expect(result.result, isA<String>());
 
       // Number result
-      result = codec.ToolResult(toolCallId: '2', result: 42);
+      result = codec.ToolResultPayload(toolCallId: '2', result: 42);
       expect(result.result, isA<int>());
 
       // Boolean result
-      result = codec.ToolResult(toolCallId: '3', result: true);
+      result = codec.ToolResultPayload(toolCallId: '3', result: true);
       expect(result.result, isA<bool>());
 
       // List result
-      result = codec.ToolResult(toolCallId: '4', result: [1, 2, 3]);
+      result = codec.ToolResultPayload(toolCallId: '4', result: [1, 2, 3]);
       expect(result.result, isA<List>());
 
       // Map result
-      result = codec.ToolResult(toolCallId: '5', result: {'nested': 'object'});
+      result = codec.ToolResultPayload(toolCallId: '5', result: {'nested': 'object'});
       expect(result.result, isA<Map>());
     });
   });

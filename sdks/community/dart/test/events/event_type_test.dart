@@ -5,12 +5,16 @@ void main() {
   group('EventType', () {
     test('each enum has correct string value', () {
       expect(EventType.textMessageStart.value, equals('TEXT_MESSAGE_START'));
-      expect(EventType.textMessageContent.value, equals('TEXT_MESSAGE_CONTENT'));
+      expect(
+          EventType.textMessageContent.value, equals('TEXT_MESSAGE_CONTENT'));
       expect(EventType.textMessageEnd.value, equals('TEXT_MESSAGE_END'));
       expect(EventType.textMessageChunk.value, equals('TEXT_MESSAGE_CHUNK'));
-      expect(EventType.thinkingTextMessageStart.value, equals('THINKING_TEXT_MESSAGE_START'));
-      expect(EventType.thinkingTextMessageContent.value, equals('THINKING_TEXT_MESSAGE_CONTENT'));
-      expect(EventType.thinkingTextMessageEnd.value, equals('THINKING_TEXT_MESSAGE_END'));
+      expect(EventType.thinkingTextMessageStart.value,
+          equals('THINKING_TEXT_MESSAGE_START'));
+      expect(EventType.thinkingTextMessageContent.value,
+          equals('THINKING_TEXT_MESSAGE_CONTENT'));
+      expect(EventType.thinkingTextMessageEnd.value,
+          equals('THINKING_TEXT_MESSAGE_END'));
       expect(EventType.toolCallStart.value, equals('TOOL_CALL_START'));
       expect(EventType.toolCallArgs.value, equals('TOOL_CALL_ARGS'));
       expect(EventType.toolCallEnd.value, equals('TOOL_CALL_END'));
@@ -32,43 +36,71 @@ void main() {
       expect(EventType.stepStarted.value, equals('STEP_STARTED'));
       expect(EventType.stepFinished.value, equals('STEP_FINISHED'));
       expect(EventType.reasoningStart.value, equals('REASONING_START'));
-      expect(EventType.reasoningMessageStart.value, equals('REASONING_MESSAGE_START'));
-      expect(EventType.reasoningMessageContent.value, equals('REASONING_MESSAGE_CONTENT'));
-      expect(EventType.reasoningMessageEnd.value, equals('REASONING_MESSAGE_END'));
-      expect(EventType.reasoningMessageChunk.value, equals('REASONING_MESSAGE_CHUNK'));
+      expect(EventType.reasoningMessageStart.value,
+          equals('REASONING_MESSAGE_START'));
+      expect(EventType.reasoningMessageContent.value,
+          equals('REASONING_MESSAGE_CONTENT'));
+      expect(
+          EventType.reasoningMessageEnd.value, equals('REASONING_MESSAGE_END'));
+      expect(EventType.reasoningMessageChunk.value,
+          equals('REASONING_MESSAGE_CHUNK'));
       expect(EventType.reasoningEnd.value, equals('REASONING_END'));
-      expect(EventType.reasoningEncryptedValue.value, equals('REASONING_ENCRYPTED_VALUE'));
+      expect(EventType.reasoningEncryptedValue.value,
+          equals('REASONING_ENCRYPTED_VALUE'));
     });
 
     test('fromString converts string to correct enum', () {
-      expect(EventType.fromString('TEXT_MESSAGE_START'), equals(EventType.textMessageStart));
-      expect(EventType.fromString('TEXT_MESSAGE_CONTENT'), equals(EventType.textMessageContent));
-      expect(EventType.fromString('TEXT_MESSAGE_END'), equals(EventType.textMessageEnd));
-      expect(EventType.fromString('TEXT_MESSAGE_CHUNK'), equals(EventType.textMessageChunk));
-      expect(EventType.fromString('THINKING_TEXT_MESSAGE_START'), equals(EventType.thinkingTextMessageStart));
-      expect(EventType.fromString('THINKING_TEXT_MESSAGE_CONTENT'), equals(EventType.thinkingTextMessageContent));
-      expect(EventType.fromString('THINKING_TEXT_MESSAGE_END'), equals(EventType.thinkingTextMessageEnd));
-      expect(EventType.fromString('TOOL_CALL_START'), equals(EventType.toolCallStart));
-      expect(EventType.fromString('TOOL_CALL_ARGS'), equals(EventType.toolCallArgs));
-      expect(EventType.fromString('TOOL_CALL_END'), equals(EventType.toolCallEnd));
-      expect(EventType.fromString('TOOL_CALL_CHUNK'), equals(EventType.toolCallChunk));
-      expect(EventType.fromString('TOOL_CALL_RESULT'), equals(EventType.toolCallResult));
-      expect(EventType.fromString('THINKING_START'), equals(EventType.thinkingStart));
-      expect(EventType.fromString('THINKING_CONTENT'), equals(EventType.thinkingContent));
-      expect(EventType.fromString('THINKING_END'), equals(EventType.thinkingEnd));
-      expect(EventType.fromString('STATE_SNAPSHOT'), equals(EventType.stateSnapshot));
+      expect(EventType.fromString('TEXT_MESSAGE_START'),
+          equals(EventType.textMessageStart));
+      expect(EventType.fromString('TEXT_MESSAGE_CONTENT'),
+          equals(EventType.textMessageContent));
+      expect(EventType.fromString('TEXT_MESSAGE_END'),
+          equals(EventType.textMessageEnd));
+      expect(EventType.fromString('TEXT_MESSAGE_CHUNK'),
+          equals(EventType.textMessageChunk));
+      expect(EventType.fromString('THINKING_TEXT_MESSAGE_START'),
+          equals(EventType.thinkingTextMessageStart));
+      expect(EventType.fromString('THINKING_TEXT_MESSAGE_CONTENT'),
+          equals(EventType.thinkingTextMessageContent));
+      expect(EventType.fromString('THINKING_TEXT_MESSAGE_END'),
+          equals(EventType.thinkingTextMessageEnd));
+      expect(EventType.fromString('TOOL_CALL_START'),
+          equals(EventType.toolCallStart));
+      expect(EventType.fromString('TOOL_CALL_ARGS'),
+          equals(EventType.toolCallArgs));
+      expect(
+          EventType.fromString('TOOL_CALL_END'), equals(EventType.toolCallEnd));
+      expect(EventType.fromString('TOOL_CALL_CHUNK'),
+          equals(EventType.toolCallChunk));
+      expect(EventType.fromString('TOOL_CALL_RESULT'),
+          equals(EventType.toolCallResult));
+      expect(EventType.fromString('THINKING_START'),
+          equals(EventType.thinkingStart));
+      expect(EventType.fromString('THINKING_CONTENT'),
+          equals(EventType.thinkingContent));
+      expect(
+          EventType.fromString('THINKING_END'), equals(EventType.thinkingEnd));
+      expect(EventType.fromString('STATE_SNAPSHOT'),
+          equals(EventType.stateSnapshot));
       expect(EventType.fromString('STATE_DELTA'), equals(EventType.stateDelta));
-      expect(EventType.fromString('MESSAGES_SNAPSHOT'), equals(EventType.messagesSnapshot));
-      expect(EventType.fromString('ACTIVITY_SNAPSHOT'), equals(EventType.activitySnapshot));
-      expect(EventType.fromString('ACTIVITY_DELTA'), equals(EventType.activityDelta));
+      expect(EventType.fromString('MESSAGES_SNAPSHOT'),
+          equals(EventType.messagesSnapshot));
+      expect(EventType.fromString('ACTIVITY_SNAPSHOT'),
+          equals(EventType.activitySnapshot));
+      expect(EventType.fromString('ACTIVITY_DELTA'),
+          equals(EventType.activityDelta));
       expect(EventType.fromString('RAW'), equals(EventType.raw));
       expect(EventType.fromString('CUSTOM'), equals(EventType.custom));
       expect(EventType.fromString('RUN_STARTED'), equals(EventType.runStarted));
-      expect(EventType.fromString('RUN_FINISHED'), equals(EventType.runFinished));
+      expect(
+          EventType.fromString('RUN_FINISHED'), equals(EventType.runFinished));
       expect(EventType.fromString('RUN_ERROR'), equals(EventType.runError));
-      expect(EventType.fromString('STEP_STARTED'), equals(EventType.stepStarted));
-      expect(EventType.fromString('STEP_FINISHED'), equals(EventType.stepFinished));
-      expect(EventType.fromString('REASONING_START'), equals(EventType.reasoningStart));
+      expect(
+          EventType.fromString('STEP_STARTED'), equals(EventType.stepStarted));
+      expect(EventType.fromString('STEP_FINISHED'),
+          equals(EventType.stepFinished));
+      expect(EventType.fromString('REASONING_START'),
+          equals(EventType.reasoningStart));
       expect(
         EventType.fromString('REASONING_MESSAGE_START'),
         equals(EventType.reasoningMessageStart),
@@ -85,7 +117,8 @@ void main() {
         EventType.fromString('REASONING_MESSAGE_CHUNK'),
         equals(EventType.reasoningMessageChunk),
       );
-      expect(EventType.fromString('REASONING_END'), equals(EventType.reasoningEnd));
+      expect(EventType.fromString('REASONING_END'),
+          equals(EventType.reasoningEnd));
       expect(
         EventType.fromString('REASONING_ENCRYPTED_VALUE'),
         equals(EventType.reasoningEncryptedValue),
@@ -124,7 +157,7 @@ void main() {
     });
 
     test('values list contains all event types', () {
-      expect(EventType.values.length, equals(34));
+      expect(EventType.values.length, equals(38));
 
       // Verify specific important event types are included
       expect(EventType.values, contains(EventType.textMessageStart));
@@ -134,6 +167,9 @@ void main() {
       expect(EventType.values, contains(EventType.stateSnapshot));
       expect(EventType.values, contains(EventType.activitySnapshot));
       expect(EventType.values, contains(EventType.reasoningStart));
+      expect(EventType.values, contains(EventType.subagentStarted));
+      expect(EventType.values, contains(EventType.subagentFinished));
+      expect(EventType.values, contains(EventType.subagentError));
     });
 
     test('enum values are unique', () {
@@ -181,7 +217,7 @@ void main() {
 
     test('enum supports index property', () {
       expect(EventType.textMessageStart.index, equals(0));
-      expect(EventType.reasoningEncryptedValue.index, equals(EventType.values.length - 1));
+      expect(EventType.unknown.index, equals(EventType.values.length - 1));
     });
 
     test('enum name property returns correct name', () {
@@ -280,7 +316,8 @@ void main() {
         for (final event in stateEvents) {
           expect(
             event.value,
-            anyOf(contains('STATE'), contains('MESSAGES'), contains('ACTIVITY')),
+            anyOf(
+                contains('STATE'), contains('MESSAGES'), contains('ACTIVITY')),
           );
         }
       });

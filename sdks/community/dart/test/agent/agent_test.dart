@@ -15,7 +15,26 @@ class TestAgent extends AbstractAgent {
   AbstractAgent createClone() => TestAgent();
 
   @override
-  Stream<BaseEvent> run(RunAgentInput input) => Stream<BaseEvent>.fromIterable(eventsToEmit);
+  Stream<BaseEvent> run(RunAgentInput input) =>
+      Stream<BaseEvent>.fromIterable(eventsToEmit);
+}
+
+class CapturingTestAgent extends TestAgent {
+  RunAgentInput? receivedInput;
+
+  CapturingTestAgent({
+    AgentConfig config = const AgentConfig(),
+    List<BaseEvent> eventsToEmit = const [],
+  }) : super(config: config, eventsToEmit: eventsToEmit);
+
+  @override
+  AbstractAgent createClone() => CapturingTestAgent();
+
+  @override
+  Stream<BaseEvent> run(RunAgentInput input) {
+    receivedInput = input;
+    return super.run(input);
+  }
 }
 
 class StreamingTestAgent extends AbstractAgent {
@@ -89,7 +108,7 @@ void main() {
   group('AbstractAgent', () {
     test('clone preserves base fields and keeps state independent', () {
       final agent = TestAgent(
-        config: const AgentConfig(
+        config: AgentConfig(
           agentId: 'agent-1',
           description: 'test agent',
           threadId: 'thread-1',
@@ -119,7 +138,7 @@ void main() {
     test('chains subscriber mutations during initialization', () async {
       final order = <String>[];
       final agent = TestAgent(
-        config: const AgentConfig(
+        config: AgentConfig(
           initialState: {'counter': 0},
         ),
         eventsToEmit: const [
@@ -170,11 +189,12 @@ void main() {
       expect(agent.subscribers, isEmpty);
     });
 
-    test('temporary subscriber is combined with permanent subscribers', () async {
+    test('temporary subscriber is combined with permanent subscribers',
+        () async {
       final permanentCalls = <String>[];
       final temporaryCalls = <String>[];
       final agent = TestAgent(
-        config: const AgentConfig(threadId: 'thread-1'),
+        config: AgentConfig(threadId: 'thread-1'),
         eventsToEmit: const [
           RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
           RunFinishedEvent(threadId: 'thread-1', runId: 'run-1'),
@@ -203,11 +223,13 @@ void main() {
       expect(temporaryCalls, ['run-1']);
     });
 
-    test('notifies changed callbacks when subscriber returns new references with same content', () async {
+    test(
+        'notifies changed callbacks when subscriber returns new references with same content',
+        () async {
       var messagesChangedCount = 0;
       var stateChangedCount = 0;
       final agent = TestAgent(
-        config: const AgentConfig(
+        config: AgentConfig(
           initialMessages: [
             UserMessage(id: 'msg-1', content: 'hello'),
           ],
@@ -243,10 +265,34 @@ void main() {
       expect(agent.state, {'count': 1});
     });
 
+    test('writes a subscriber state mutation back to the run input', () async {
+      final agent = CapturingTestAgent(
+        config: const AgentConfig(
+          threadId: 'thread-1',
+          initialState: {'count': 0},
+        ),
+      );
+
+      agent.subscribe(
+        AgentSubscriber(
+          onRunInitialized: (context) => const AgentStateMutation(
+            state: {'count': 7},
+          ),
+        ),
+      );
+
+      await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
+
+      // The agent keeps the corrected state; the producer receives it, rather
+      // than the state the subscriber just replaced.
+      expect(agent.state, {'count': 7});
+      expect(agent.receivedInput!.state, {'count': 7});
+    });
+
     test('calls generic onEvent for every event', () async {
       final seen = <String>[];
       final agent = TestAgent(
-        config: const AgentConfig(threadId: 'thread-1'),
+        config: AgentConfig(threadId: 'thread-1'),
         eventsToEmit: const [
           RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
           StateSnapshotEvent(snapshot: {'ready': true}),
@@ -268,17 +314,21 @@ void main() {
       expect(seen, ['RUN_STARTED', 'STATE_SNAPSHOT', 'RUN_FINISHED']);
     });
 
-    test('returns result and new messages while exposing text buffers to subscribers', () async {
+    test(
+        'returns result and new messages while exposing text buffers to subscribers',
+        () async {
       final buffers = <String>[];
       final agent = TestAgent(
-        config: const AgentConfig(threadId: 'thread-1'),
+        config: AgentConfig(threadId: 'thread-1'),
         eventsToEmit: const [
           RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
-          TextMessageStartEvent(messageId: 'm1', role: TextMessageRole.assistant),
+          TextMessageStartEvent(
+              messageId: 'm1', role: TextMessageRole.assistant),
           TextMessageContentEvent(messageId: 'm1', delta: 'Hello'),
           TextMessageContentEvent(messageId: 'm1', delta: ' world'),
           TextMessageEndEvent(messageId: 'm1'),
-          RunFinishedEvent(threadId: 'thread-1', runId: 'run-1', result: 'done'),
+          RunFinishedEvent(
+              threadId: 'thread-1', runId: 'run-1', result: 'done'),
         ],
       );
 
@@ -306,7 +356,7 @@ void main() {
       final partialArgs = <Object?>[];
       final finalArgs = <Object?>[];
       final agent = TestAgent(
-        config: const AgentConfig(threadId: 'thread-1'),
+        config: AgentConfig(threadId: 'thread-1'),
         eventsToEmit: const [
           RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
           ToolCallStartEvent(
@@ -343,12 +393,15 @@ void main() {
       expect(finalArgs.single, {'query': 'test'});
     });
 
-    test('connectAgent uses connect pipeline and ignores missing connect support', () async {
+    test(
+        'connectAgent uses connect pipeline and ignores missing connect support',
+        () async {
       final connected = ConnectTestAgent(
-        config: const AgentConfig(threadId: 'thread-connect'),
+        config: AgentConfig(threadId: 'thread-connect'),
         connectEventsToEmit: const [
           RunStartedEvent(threadId: 'thread-connect', runId: 'run-connect'),
-          TextMessageStartEvent(messageId: 'm-connect', role: TextMessageRole.assistant),
+          TextMessageStartEvent(
+              messageId: 'm-connect', role: TextMessageRole.assistant),
           TextMessageContentEvent(messageId: 'm-connect', delta: 'connected'),
           TextMessageEndEvent(messageId: 'm-connect'),
           RunFinishedEvent(
@@ -364,10 +417,11 @@ void main() {
       );
 
       expect(connectedResult.result, 'connected-result');
-      expect(connectedResult.newMessages.map((message) => message.id), ['m-connect']);
+      expect(connectedResult.newMessages.map((message) => message.id),
+          ['m-connect']);
 
       final notImplemented = TestAgent(
-        config: const AgentConfig(threadId: 'thread-connect'),
+        config: AgentConfig(threadId: 'thread-connect'),
       );
       final fallbackResult = await notImplemented.connectAgent(
         const RunAgentParameters(runId: 'run-connect-missing'),
@@ -377,19 +431,119 @@ void main() {
       expect(fallbackResult.newMessages, isEmpty);
     });
 
+    test('runAgent requires resume coverage for pending interrupts', () async {
+      final agent = TestAgent(
+        config: AgentConfig(threadId: 'thread-interrupt'),
+      );
+      agent.pendingInterrupts = const [
+        Interrupt(id: 'int-1', reason: 'tool_call'),
+      ];
+
+      await expectLater(
+        agent.runAgent(const RunAgentParameters(runId: 'run-1')),
+        throwsA(isA<AGUIError>().having(
+          (error) => error.message,
+          'message',
+          contains('int-1'),
+        )),
+      );
+    });
+
+    test('connectAgent reads an interrupted thread without answering it',
+        () async {
+      // Connecting only reads history: the resume array covers nothing, and
+      // that must not be an error — the TypeScript SDK draws the same line.
+      final agent = ConnectTestAgent(
+        config: AgentConfig(threadId: 'thread-interrupt'),
+        connectEventsToEmit: const [
+          RunStartedEvent(threadId: 'thread-interrupt', runId: 'run-connect'),
+          RunFinishedEvent(
+            threadId: 'thread-interrupt',
+            runId: 'run-connect',
+            result: 'history',
+          ),
+        ],
+      );
+      agent.pendingInterrupts = const [
+        Interrupt(id: 'int-1', reason: 'tool_call'),
+      ];
+
+      final result = await agent.connectAgent(
+        const RunAgentParameters(runId: 'run-connect'),
+      );
+
+      expect(result.result, 'history');
+    });
+
+    test('an expired interrupt is answerable only by cancelling it', () async {
+      final agent = TestAgent(
+        config: AgentConfig(threadId: 'thread-expired'),
+        eventsToEmit: const [
+          RunStartedEvent(threadId: 'thread-expired', runId: 'run-1'),
+          RunFinishedEvent(threadId: 'thread-expired', runId: 'run-1'),
+        ],
+      );
+      agent.pendingInterrupts = const [
+        Interrupt(
+          id: 'int-expired',
+          reason: 'tool_call',
+          expiresAt: '2020-01-01T00:00:00Z',
+        ),
+      ];
+
+      await expectLater(
+        agent.runAgent(const RunAgentParameters(
+          runId: 'run-resolved',
+          resume: [
+            ResumeEntry(
+              interruptId: 'int-expired',
+              status: ResumeStatus.resolved,
+              payload: {'approved': true},
+            ),
+          ],
+        )),
+        throwsA(isA<AGUIError>().having(
+          (error) => error.message,
+          'message',
+          contains('can no longer be answered'),
+        )),
+      );
+
+      final result = await agent.runAgent(const RunAgentParameters(
+        runId: 'run-cancelled',
+        resume: [
+          ResumeEntry(
+            interruptId: 'int-expired',
+            status: ResumeStatus.cancelled,
+          ),
+        ],
+      ));
+
+      expect(result, isA<RunAgentResult>());
+    });
+
+    test('getCapabilities is optional and answers null by default', () async {
+      final agent = TestAgent();
+
+      expect(await agent.getCapabilities(), isNull);
+    });
+
     test('accumulates messages across multiple sequential runs', () async {
       var agent = TestAgent(
-        config: const AgentConfig(threadId: 'test-thread'),
+        config: AgentConfig(threadId: 'test-thread'),
         eventsToEmit: const [
           RunStartedEvent(threadId: 'test-thread', runId: 'run-1'),
-          TextMessageStartEvent(messageId: 'msg-1', role: TextMessageRole.assistant),
-          TextMessageContentEvent(messageId: 'msg-1', delta: 'Hello from run 1'),
+          TextMessageStartEvent(
+              messageId: 'msg-1', role: TextMessageRole.assistant),
+          TextMessageContentEvent(
+              messageId: 'msg-1', delta: 'Hello from run 1'),
           TextMessageEndEvent(messageId: 'msg-1'),
           RunFinishedEvent(threadId: 'test-thread', runId: 'run-1'),
         ],
       );
 
-      final result1 = await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
+      final result1 =
+          await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
       expect(result1.newMessages.single.content, 'Hello from run 1');
       expect(agent.messages, hasLength(1));
 
@@ -400,25 +554,32 @@ void main() {
         ),
         eventsToEmit: const [
           RunStartedEvent(threadId: 'test-thread', runId: 'run-2'),
-          TextMessageStartEvent(messageId: 'msg-2', role: TextMessageRole.assistant),
-          TextMessageContentEvent(messageId: 'msg-2', delta: 'Hello from run 2'),
+          TextMessageStartEvent(
+              messageId: 'msg-2', role: TextMessageRole.assistant),
+          TextMessageContentEvent(
+              messageId: 'msg-2', delta: 'Hello from run 2'),
           TextMessageEndEvent(messageId: 'msg-2'),
           RunFinishedEvent(threadId: 'test-thread', runId: 'run-2'),
         ],
       );
 
-      final result2 = await agent.runAgent(const RunAgentParameters(runId: 'run-2'));
+      final result2 =
+          await agent.runAgent(const RunAgentParameters(runId: 'run-2'));
       expect(result2.newMessages.single.content, 'Hello from run 2');
-      expect(agent.messages.map((message) => message.id).toList(), ['msg-1', 'msg-2']);
+      expect(agent.messages.map((message) => message.id).toList(),
+          ['msg-1', 'msg-2']);
     });
 
-    test('handles concurrent text messages through full agent pipeline', () async {
+    test('handles concurrent text messages through full agent pipeline',
+        () async {
       final agent = TestAgent(
-        config: const AgentConfig(threadId: 'test'),
+        config: AgentConfig(threadId: 'test'),
         eventsToEmit: const [
           RunStartedEvent(threadId: 'test', runId: 'test'),
-          TextMessageStartEvent(messageId: 'msg1', role: TextMessageRole.assistant),
-          TextMessageStartEvent(messageId: 'msg2', role: TextMessageRole.assistant),
+          TextMessageStartEvent(
+              messageId: 'msg1', role: TextMessageRole.assistant),
+          TextMessageStartEvent(
+              messageId: 'msg2', role: TextMessageRole.assistant),
           TextMessageContentEvent(messageId: 'msg1', delta: 'First message '),
           TextMessageContentEvent(messageId: 'msg2', delta: 'Second message '),
           TextMessageContentEvent(messageId: 'msg1', delta: 'content'),
@@ -432,15 +593,17 @@ void main() {
       final result = await agent.runAgent();
 
       expect(result.newMessages, hasLength(2));
-      final msg1 = result.newMessages.where((message) => message.id == 'msg1').single;
-      final msg2 = result.newMessages.where((message) => message.id == 'msg2').single;
+      final msg1 =
+          result.newMessages.where((message) => message.id == 'msg1').single;
+      final msg2 =
+          result.newMessages.where((message) => message.id == 'msg2').single;
       expect(msg1.content, 'First message content');
       expect(msg2.content, 'Second message content');
     });
 
     test('handles concurrent tool calls through full agent pipeline', () async {
       final agent = TestAgent(
-        config: const AgentConfig(threadId: 'test'),
+        config: AgentConfig(threadId: 'test'),
         eventsToEmit: const [
           RunStartedEvent(threadId: 'test', runId: 'test'),
           ToolCallStartEvent(
@@ -478,12 +641,13 @@ void main() {
       expect(msg2.toolCalls!.single.function.arguments, '{"expr":"1+1"}');
     });
 
-    test('detachActiveRun finalizes before resolving and ignores later events', () async {
+    test('detachActiveRun finalizes before resolving and ignores later events',
+        () async {
       final controller = StreamController<BaseEvent>();
       final order = <String>[];
       var messagesChangedCount = 0;
       final agent = StreamingTestAgent(
-        config: const AgentConfig(threadId: 'thread-detach'),
+        config: AgentConfig(threadId: 'thread-detach'),
       )..controller = controller;
 
       final runFuture = agent.runAgent(
@@ -506,7 +670,8 @@ void main() {
       );
       await Future<void>.delayed(Duration.zero);
 
-      final detachFuture = agent.detachActiveRun().then((_) => order.add('awaited'));
+      final detachFuture =
+          agent.detachActiveRun().then((_) => order.add('awaited'));
 
       controller.add(
         const TextMessageStartEvent(
@@ -527,16 +692,20 @@ void main() {
 
       expect(order, ['finalized', 'awaited']);
       expect(messagesChangedCount, 0);
-      expect(agent.messages.where((message) => message.id == 'msg-after-detach'), isEmpty);
+      expect(
+          agent.messages.where((message) => message.id == 'msg-after-detach'),
+          isEmpty);
     });
 
-    test('continues processing later subscribers when one subscriber throws', () async {
+    test('continues processing later subscribers when one subscriber throws',
+        () async {
       var recovered = false;
       final agent = TestAgent(
-        config: const AgentConfig(threadId: 'thread-1'),
+        config: AgentConfig(threadId: 'thread-1'),
         eventsToEmit: const [
           RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
-          TextMessageStartEvent(messageId: 'msg-1', role: TextMessageRole.assistant),
+          TextMessageStartEvent(
+              messageId: 'msg-1', role: TextMessageRole.assistant),
         ],
       );
 
@@ -559,10 +728,11 @@ void main() {
       expect(recovered, isTrue);
     });
 
-    test('onRunFailed can stop propagation and still finalizes the run', () async {
+    test('onRunFailed can stop propagation and still finalizes the run',
+        () async {
       final calls = <String>[];
       final agent = RunThenErrorAgent(
-        config: const AgentConfig(threadId: 'thread-err'),
+        config: AgentConfig(threadId: 'thread-err'),
       );
 
       agent.subscribe(
@@ -578,7 +748,8 @@ void main() {
         ),
       );
 
-      final result = await agent.runAgent(const RunAgentParameters(runId: 'run-err'));
+      final result =
+          await agent.runAgent(const RunAgentParameters(runId: 'run-err'));
 
       expect(result.result, isNull);
       expect(result.newMessages, isEmpty);
@@ -613,17 +784,19 @@ void main() {
       );
     });
 
-    test('runAgent emits lifecycle and pipeline debug logs when enabled', () async {
+    test('runAgent emits lifecycle and pipeline debug logs when enabled',
+        () async {
       final lines = <String>[];
       final agent = TestAgent(
-        config: const AgentConfig(
+        config: AgentConfig(
           agentId: 'test-agent',
           threadId: 'thread-1',
           debug: true,
         ),
         eventsToEmit: const [
           RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
-          TextMessageStartEvent(messageId: 'msg-1', role: TextMessageRole.assistant),
+          TextMessageStartEvent(
+              messageId: 'msg-1', role: TextMessageRole.assistant),
           TextMessageContentEvent(messageId: 'msg-1', delta: 'Hello'),
           TextMessageEndEvent(messageId: 'msg-1'),
           RunFinishedEvent(threadId: 'thread-1', runId: 'run-1'),
@@ -637,16 +810,19 @@ void main() {
         ),
       );
 
-      expect(lines.any((line) => line.startsWith('[LIFECYCLE] Run started:')), isTrue);
-      expect(lines.any((line) => line.startsWith('[LIFECYCLE] Run finished:')), isTrue);
+      expect(lines.any((line) => line.startsWith('[LIFECYCLE] Run started:')),
+          isTrue);
+      expect(lines.any((line) => line.startsWith('[LIFECYCLE] Run finished:')),
+          isTrue);
       expect(lines.any((line) => line.startsWith('[VERIFY] Event:')), isTrue);
-      expect(lines.any((line) => line.startsWith('[APPLY] Event applied:')), isTrue);
+      expect(lines.any((line) => line.startsWith('[APPLY] Event applied:')),
+          isTrue);
     });
 
     test('runAgent logs errors when lifecycle debugging is enabled', () async {
       final lines = <String>[];
       final agent = ErrorTestAgent(
-        config: const AgentConfig(
+        config: AgentConfig(
           agentId: 'error-agent',
           threadId: 'thread-1',
           debug: true,
@@ -663,7 +839,8 @@ void main() {
         throwsA(isA<StateError>()),
       );
 
-      expect(lines.any((line) => line.startsWith('[LIFECYCLE] Run errored:')), isTrue);
+      expect(lines.any((line) => line.startsWith('[LIFECYCLE] Run errored:')),
+          isTrue);
     });
   });
 }

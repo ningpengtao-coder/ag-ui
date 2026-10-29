@@ -10,6 +10,8 @@ export 'a2ui_middleware.dart';
 export 'backward_compatibility_0_0_39.dart';
 export 'backward_compatibility_0_0_45.dart';
 export 'backward_compatibility_0_0_47.dart';
+export 'backward_compatibility_0_0_57.dart';
+export 'compatibility_boundary.dart';
 export 'filter_tool_calls.dart';
 
 typedef MiddlewareFunction = Stream<BaseEvent> Function(
@@ -49,6 +51,7 @@ abstract class Middleware {
           threadId: input.threadId,
           runId: input.runId,
           parentRunId: input.parentRunId,
+          protocolVersion: input.protocolVersion,
           state: currentState,
           messages: currentMessages,
           tools: input.tools,
@@ -79,5 +82,6 @@ class FunctionMiddleware extends Middleware {
   FunctionMiddleware(this._fn);
 
   @override
-  Stream<BaseEvent> run(RunAgentInput input, AbstractAgent next) => _fn(input, next);
+  Stream<BaseEvent> run(RunAgentInput input, AbstractAgent next) =>
+      _fn(input, next);
 }

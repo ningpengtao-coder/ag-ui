@@ -51,7 +51,7 @@ Stream<HttpEvent> runHttpRequest(
       final contentType = response.headers['content-type'] ?? '';
       if (contentType.contains('application/json')) {
         try {
-          payload = json.decode(text);
+          payload = json.decode(text) as Object;
         } catch (_) {
           payload = text;
         }

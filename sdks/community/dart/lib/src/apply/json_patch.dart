@@ -51,7 +51,7 @@ Object? applyJsonPatch(Object? document, List<dynamic> operations) {
       throw ArgumentError('Patch operation must be an object.');
     }
 
-    final operation = Map<String, dynamic>.from(rawOperation as Map);
+    final operation = Map<String, dynamic>.from(rawOperation);
     final op = operation['op'] as String?;
     final path = operation['path'] as String?;
     if (op == null || path == null) {
@@ -65,6 +65,12 @@ Object? applyJsonPatch(Object? document, List<dynamic> operations) {
         working = _applyReplace(working, path, operation['value']);
       case 'remove':
         working = _applyRemove(working, path);
+      case 'move':
+        working = _applyMove(working, path, operation['from']);
+      case 'copy':
+        working = _applyCopy(working, path, operation['from']);
+      case 'test':
+        working = _applyTest(working, path, operation['value']);
       default:
         throw UnsupportedError('Unsupported JSON Patch operation: $op');
     }
@@ -155,6 +161,72 @@ Object? _applyRemove(Object? document, String path) {
   }
 
   throw ArgumentError('Cannot apply remove operation at path "$path".');
+}
+
+Object? _applyMove(Object? document, String path, Object? from) {
+  if (from is! String) {
+    throw ArgumentError('A move operation must include "from".');
+  }
+  final value = _resolveValue(document, from);
+  return _applyAdd(_applyRemove(document, from), path, value);
+}
+
+Object? _applyCopy(Object? document, String path, Object? from) {
+  if (from is! String) {
+    throw ArgumentError('A copy operation must include "from".');
+  }
+  return _applyAdd(document, path, _resolveValue(document, from));
+}
+
+Object? _applyTest(Object? document, String path, Object? expected) {
+  if (!_jsonEquals(_resolveValue(document, path), expected)) {
+    throw ArgumentError('Test operation failed at path "$path".');
+  }
+  return document;
+}
+
+/// Resolves the value a JSON Pointer addresses.
+Object? _resolveValue(Object? document, String pointer) {
+  var current = document;
+  for (final segment in _decodePointer(pointer)) {
+    if (current is Map<String, dynamic>) {
+      if (!current.containsKey(segment)) {
+        throw ArgumentError('Path segment "$segment" does not exist.');
+      }
+      current = current[segment];
+    } else if (current is List<Object?>) {
+      current = current[int.parse(segment)];
+    } else {
+      throw ArgumentError('Cannot traverse path through non-container value.');
+    }
+  }
+  return current;
+}
+
+bool _jsonEquals(Object? a, Object? b) {
+  if (a is Map<Object?, Object?> && b is Map<Object?, Object?>) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (final key in a.keys) {
+      if (!b.containsKey(key) || !_jsonEquals(a[key], b[key])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  if (a is List<Object?> && b is List<Object?>) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var index = 0; index < a.length; index++) {
+      if (!_jsonEquals(a[index], b[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return a == b;
 }
 
 Object? _resolveParent(Object? document, List<String> segments) {

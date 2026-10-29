@@ -42,7 +42,10 @@ library ag_ui;
 
 // Match the TypeScript client package shape as closely as Dart allows.
 export 'src/apply/index.dart';
+export 'src/activity_history.dart';
 export 'src/verify/index.dart';
+export 'src/enforce/enforce.dart';
+export 'src/diagnostics.dart';
 export 'src/transform/index.dart';
 export 'src/run/http_request.dart';
 export 'src/legacy/convert.dart';
@@ -69,7 +72,7 @@ export 'src/encoder/encoder.dart';
 export 'src/encoder/decoder.dart';
 export 'src/encoder/stream_adapter.dart';
 export 'src/encoder/errors.dart' hide ValidationError;
-export 'src/encoder/client_codec.dart' hide ToolResult;
+export 'src/encoder/client_codec.dart';
 
 // Lower-level SSE helpers.
 export 'src/sse/sse_client.dart';

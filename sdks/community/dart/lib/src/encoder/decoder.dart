@@ -53,18 +53,21 @@ class EventDecoder {
     try {
       // Validate required fields
       Validators.requireNonEmpty(json['type'] as String?, 'type');
-      
+
       final event = BaseEvent.fromJson(json);
-      
+
       // Validate the created event
       validate(event);
-      
+
       return event;
     } on AgUiError {
       rethrow;
     } catch (e) {
+      // Keep the cause's text: it carries the offending field, which is the
+      // only way a consumer can tell a malformed known value (fatal) from
+      // something it merely did not recognise (stripped later).
       throw DecodingError(
-        'Failed to create event from JSON',
+        'Failed to create event from JSON: $e',
         field: 'json',
         expectedType: 'BaseEvent',
         actualValue: json,
@@ -80,7 +83,7 @@ class EventDecoder {
     // Extract data from SSE format
     final lines = sseMessage.split('\n');
     final dataLines = <String>[];
-    
+
     for (final line in lines) {
       if (line.startsWith('data: ')) {
         dataLines.add(line.substring(6)); // Remove "data: " prefix
@@ -88,7 +91,7 @@ class EventDecoder {
         dataLines.add(line.substring(5)); // Remove "data:" prefix
       }
     }
-    
+
     if (dataLines.isEmpty) {
       throw DecodingError(
         'No data found in SSE message',
@@ -97,10 +100,10 @@ class EventDecoder {
         actualValue: sseMessage,
       );
     }
-    
+
     // Join all data lines (for multi-line data)
     final data = dataLines.join('\n');
-    
+
     // Handle special SSE comment for keep-alive
     if (data.trim() == ':') {
       throw DecodingError(
@@ -110,7 +113,7 @@ class EventDecoder {
         actualValue: data,
       );
     }
-    
+
     return decode(data);
   }
 
@@ -136,7 +139,7 @@ class EventDecoder {
 
     try {
       final string = utf8.decode(data);
-      
+
       // Check if it looks like SSE format
       if (string.startsWith('data:')) {
         return decodeSSE(string);
@@ -159,20 +162,23 @@ class EventDecoder {
   ///
   /// Returns true if valid, throws [ValidationError] if not.
   bool validate(BaseEvent event) {
+    // An unrecognised type is not required to follow the protocol's naming
+    // convention: enforcement decides whether it is translated or dropped.
+    if (event is UnknownEvent) {
+      return true;
+    }
+
     // Basic validation - ensure type is set
     Validators.validateEventType(event.type);
-    
-    // Type-specific validation
+
+    // Type-specific validation. `delta` is deliberately absent: the schema
+    // allows the empty string because providers emit empty deltas as
+    // keep-alives, and rejecting one kills a run that is working correctly.
     switch (event) {
       case TextMessageStartEvent():
         Validators.requireNonEmpty(event.messageId, 'messageId');
       case TextMessageContentEvent():
         Validators.requireNonEmpty(event.messageId, 'messageId');
-        Validators.requireNonEmpty(event.delta, 'delta');
-      case ThinkingContentEvent():
-        Validators.requireNonEmpty(event.delta, 'delta');
-      case ThinkingTextMessageContentEvent():
-        Validators.requireNonEmpty(event.delta, 'delta');
       case ToolCallStartEvent():
         Validators.requireNonEmpty(event.toolCallId, 'toolCallId');
         Validators.requireNonEmpty(event.toolCallName, 'toolCallName');
@@ -181,12 +187,11 @@ class EventDecoder {
         Validators.validateRunId(event.runId);
       case ReasoningMessageContentEvent():
         Validators.requireNonEmpty(event.messageId, 'messageId');
-        Validators.requireNonEmpty(event.delta, 'delta');
       default:
         // No specific validation for other event types
         break;
     }
-    
+
     return true;
   }
 }

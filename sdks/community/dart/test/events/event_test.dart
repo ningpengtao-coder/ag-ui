@@ -31,17 +31,15 @@ void main() {
         );
         expect(validEvent.delta, 'Hello world');
 
-        // Invalid event with empty delta should throw
-        final invalidJson = {
+        // An empty delta is legal: providers emit it as a keep-alive.
+        final keepAliveJson = {
           'type': 'TEXT_MESSAGE_CONTENT',
           'messageId': 'msg_001',
           'delta': '',
         };
 
-        expect(
-          () => TextMessageContentEvent.fromJson(invalidJson),
-          throwsA(isA<AGUIValidationError>()),
-        );
+        final keepAlive = TextMessageContentEvent.fromJson(keepAliveJson);
+        expect(keepAlive.delta, '');
       });
 
       test('TextMessageChunkEvent optional fields', () {
@@ -190,7 +188,10 @@ void main() {
       });
 
       test('RunFinishedEvent with result', () {
-        final result = {'status': 'success', 'data': [1, 2, 3]};
+        final result = {
+          'status': 'success',
+          'data': [1, 2, 3]
+        };
         final event = RunFinishedEvent(
           threadId: 'thread_001',
           runId: 'run_001',
@@ -244,14 +245,19 @@ void main() {
       test('should create correct event type based on type field', () {
         final eventJsons = [
           {'type': 'TEXT_MESSAGE_START', 'messageId': 'msg_001'},
-          {'type': 'TOOL_CALL_START', 'toolCallId': 'call_001', 'toolCallName': 'test'},
+          {
+            'type': 'TOOL_CALL_START',
+            'toolCallId': 'call_001',
+            'toolCallName': 'test'
+          },
           {'type': 'STATE_SNAPSHOT', 'snapshot': {}},
           {'type': 'RUN_STARTED', 'threadId': 'thread_001', 'runId': 'run_001'},
           {'type': 'THINKING_START'},
           {'type': 'CUSTOM', 'name': 'my_event', 'value': 'data'},
         ];
 
-        final events = eventJsons.map((json) => BaseEvent.fromJson(json)).toList();
+        final events =
+            eventJsons.map((json) => BaseEvent.fromJson(json)).toList();
 
         expect(events[0], isA<TextMessageStartEvent>());
         expect(events[1], isA<ToolCallStartEvent>());
@@ -261,16 +267,16 @@ void main() {
         expect(events[5], isA<CustomEvent>());
       });
 
-      test('should throw on invalid event type', () {
+      test('should keep an invalid event type as UnknownEvent', () {
         final json = {
           'type': 'INVALID_EVENT_TYPE',
           'data': 'some data',
         };
 
-        expect(
-          () => BaseEvent.fromJson(json),
-          throwsArgumentError,
-        );
+        final event = BaseEvent.fromJson(json);
+        expect(event, isA<UnknownEvent>());
+        expect((event as UnknownEvent).rawType, 'INVALID_EVENT_TYPE');
+        expect(event.attributes['data'], 'some data');
       });
     });
 
@@ -286,16 +292,14 @@ void main() {
         expect(decoded.title, 'Processing request');
       });
 
-      test('ThinkingTextMessageContentEvent delta validation', () {
-        final invalidJson = {
+      test('ThinkingTextMessageContentEvent accepts an empty delta', () {
+        final keepAliveJson = {
           'type': 'THINKING_TEXT_MESSAGE_CONTENT',
           'delta': '',
         };
 
-        expect(
-          () => ThinkingTextMessageContentEvent.fromJson(invalidJson),
-          throwsA(isA<AGUIValidationError>()),
-        );
+        final event = ThinkingTextMessageContentEvent.fromJson(keepAliveJson);
+        expect(event.delta, '');
       });
     });
 

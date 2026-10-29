@@ -1,93 +1,26 @@
+/// Retained for API compatibility: upgrades legacy binary content parts into
+/// the modern media parts.
+///
+/// The conversion itself is not version-gated. A legacy `{"type":"binary"}`
+/// part is retired material whose shape identifies the conversion regardless of
+/// the peer ceiling, so the always-on compatibility boundary performs it for
+/// every run. This class now delegates to that one implementation
+/// ([upgradeMessageContent]) and is no longer installed automatically.
 library;
 
 import '../agent/agent.dart';
 import '../events/events.dart';
 import '../types/types.dart';
+import 'legacy_content.dart';
 import 'middleware.dart';
 
 class BackwardCompatibility_0_0_47 extends Middleware {
   @override
   Stream<BaseEvent> run(RunAgentInput input, AbstractAgent next) {
-    final upgradedInput = RunAgentInput(
-      threadId: input.threadId,
-      runId: input.runId,
-      parentRunId: input.parentRunId,
-      state: input.state,
-      messages: input.messages.map(_upgradeMessageContent).toList(),
-      tools: input.tools,
-      context: input.context,
-      forwardedProps: input.forwardedProps,
-      resume: input.resume,
+    final upgradedInput = input.copyWith(
+      messages: input.messages.map(upgradeMessageContent).toList(),
     );
 
     return runNext(upgradedInput, next);
   }
-}
-
-Message _upgradeMessageContent(Message message) {
-  final content = message.content;
-  final parts = switch (content) {
-    UserMessageContent() => content.partsOrNull,
-    List() => content.whereType<Object?>().toList(),
-    _ => null,
-  };
-  if (parts == null) {
-    return message;
-  }
-
-  final upgraded = parts.map((part) {
-    if (part is BinaryInputContent) {
-      return _convertBinaryToNewFormat(part);
-    }
-    return part;
-  }).toList();
-
-  return _copyMessageWithContent(message, upgraded);
-}
-
-Object _convertBinaryToNewFormat(BinaryInputContent binary) {
-  final contentType = _mimeTypeToContentType(binary.mimeType);
-  final metadata = binary.filename == null ? null : {'filename': binary.filename};
-
-  if (binary.data != null) {
-    final source = InputContentDataSource(value: binary.data!, mimeType: binary.mimeType);
-    return switch (contentType) {
-      'image' => ImageInputContent(source: source, metadata: metadata),
-      'audio' => AudioInputContent(source: source, metadata: metadata),
-      'video' => VideoInputContent(source: source, metadata: metadata),
-      _ => DocumentInputContent(source: source, metadata: metadata),
-    };
-  }
-
-  if (binary.url != null) {
-    final source = InputContentUrlSource(value: binary.url!, mimeType: binary.mimeType);
-    return switch (contentType) {
-      'image' => ImageInputContent(source: source, metadata: metadata),
-      'audio' => AudioInputContent(source: source, metadata: metadata),
-      'video' => VideoInputContent(source: source, metadata: metadata),
-      _ => DocumentInputContent(source: source, metadata: metadata),
-    };
-  }
-
-  return binary;
-}
-
-String _mimeTypeToContentType(String mimeType) {
-  if (mimeType.startsWith('image/')) {
-    return 'image';
-  }
-  if (mimeType.startsWith('audio/')) {
-    return 'audio';
-  }
-  if (mimeType.startsWith('video/')) {
-    return 'video';
-  }
-  return 'document';
-}
-
-Message _copyMessageWithContent(Message message, List<Object?> content) {
-  return switch (message) {
-    UserMessage() => message.copyWith(content: content),
-    _ => message,
-  };
 }

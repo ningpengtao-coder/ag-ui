@@ -35,15 +35,42 @@ enum EventType {
   reasoningMessageEnd('REASONING_MESSAGE_END'),
   reasoningMessageChunk('REASONING_MESSAGE_CHUNK'),
   reasoningEnd('REASONING_END'),
-  reasoningEncryptedValue('REASONING_ENCRYPTED_VALUE');
+  reasoningEncryptedValue('REASONING_ENCRYPTED_VALUE'),
+  subagentStarted('SUBAGENT_STARTED'),
+  subagentFinished('SUBAGENT_FINISHED'),
+  subagentError('SUBAGENT_ERROR'),
+
+  /// Sentinel used by [UnknownEvent] for a `type` the protocol does not
+  /// describe. Never part of the protocol type set.
+  unknown('UNKNOWN');
 
   final String value;
   const EventType(this.value);
+
+  /// The event types the 1.0 protocol describes.
+  ///
+  /// The legacy `THINKING_*` members are Dart-only translations of the
+  /// pre-0.0.47 reasoning events: they stay in the enum so the era shims can
+  /// translate them, but they are not part of the protocol. Anything outside
+  /// this set has to be translated before enforcement or is dropped with a
+  /// warning, exactly like an unknown event from a newer producer.
+  static final Set<String> protocolTypes = {
+    for (final type in values)
+      if (!type.value.startsWith('THINKING_') && type != EventType.unknown)
+        type.value,
+  };
 
   static EventType fromString(String value) {
     return EventType.values.firstWhere(
       (type) => type.value == value,
       orElse: () => throw ArgumentError('Invalid event type: $value'),
     );
+  }
+
+  /// Parses [value] into a protocol event type, or returns `null` when the
+  /// producer used a type the 1.0 protocol does not describe.
+  static EventType? tryParseProtocol(String value) {
+    if (!protocolTypes.contains(value)) return null;
+    return fromString(value);
   }
 }

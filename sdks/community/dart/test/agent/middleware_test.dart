@@ -7,17 +7,18 @@ class MiddlewareTestAgent extends AbstractAgent {
   MiddlewareTestAgent({
     this.eventsToEmit = const [],
   }) : super(
-         config: const AgentConfig(
-           threadId: 'thread-1',
-           initialState: {'value': 0},
-         ),
-       );
+          config: const AgentConfig(
+            threadId: 'thread-1',
+            initialState: {'value': 0},
+          ),
+        );
 
   @override
   AbstractAgent createClone() => MiddlewareTestAgent();
 
   @override
-  Stream<BaseEvent> run(RunAgentInput input) => Stream<BaseEvent>.fromIterable(eventsToEmit);
+  Stream<BaseEvent> run(RunAgentInput input) =>
+      Stream<BaseEvent>.fromIterable(eventsToEmit);
 }
 
 class TrackingMiddleware extends Middleware {
@@ -79,40 +80,41 @@ class ToolCallingAgent extends AbstractAgent {
   AbstractAgent createClone() => ToolCallingAgent();
 
   @override
-  Stream<BaseEvent> run(RunAgentInput input) => Stream<BaseEvent>.fromIterable(const [
-    RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
-    ToolCallStartEvent(
-      toolCallId: 'tool-call-1',
-      toolCallName: 'calculator',
-      parentMessageId: 'message-1',
-    ),
-    ToolCallArgsEvent(
-      toolCallId: 'tool-call-1',
-      delta: '{"operation":"add"}',
-    ),
-    ToolCallEndEvent(toolCallId: 'tool-call-1'),
-    ToolCallResultEvent(
-      messageId: 'tool-message-1',
-      toolCallId: 'tool-call-1',
-      content: '8',
-    ),
-    ToolCallStartEvent(
-      toolCallId: 'tool-call-2',
-      toolCallName: 'weather',
-      parentMessageId: 'message-2',
-    ),
-    ToolCallArgsEvent(
-      toolCallId: 'tool-call-2',
-      delta: '{"city":"New York"}',
-    ),
-    ToolCallEndEvent(toolCallId: 'tool-call-2'),
-    ToolCallResultEvent(
-      messageId: 'tool-message-2',
-      toolCallId: 'tool-call-2',
-      content: 'Sunny',
-    ),
-    RunFinishedEvent(threadId: 'thread-1', runId: 'run-1'),
-  ]);
+  Stream<BaseEvent> run(RunAgentInput input) =>
+      Stream<BaseEvent>.fromIterable(const [
+        RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
+        ToolCallStartEvent(
+          toolCallId: 'tool-call-1',
+          toolCallName: 'calculator',
+          parentMessageId: 'message-1',
+        ),
+        ToolCallArgsEvent(
+          toolCallId: 'tool-call-1',
+          delta: '{"operation":"add"}',
+        ),
+        ToolCallEndEvent(toolCallId: 'tool-call-1'),
+        ToolCallResultEvent(
+          messageId: 'tool-message-1',
+          toolCallId: 'tool-call-1',
+          content: '8',
+        ),
+        ToolCallStartEvent(
+          toolCallId: 'tool-call-2',
+          toolCallName: 'weather',
+          parentMessageId: 'message-2',
+        ),
+        ToolCallArgsEvent(
+          toolCallId: 'tool-call-2',
+          delta: '{"city":"New York"}',
+        ),
+        ToolCallEndEvent(toolCallId: 'tool-call-2'),
+        ToolCallResultEvent(
+          messageId: 'tool-message-2',
+          toolCallId: 'tool-call-2',
+          content: 'Sunny',
+        ),
+        RunFinishedEvent(threadId: 'thread-1', runId: 'run-1'),
+      ]);
 }
 
 class CapturingAgent extends AbstractAgent {
@@ -139,11 +141,11 @@ class LegacyInputAgent extends AbstractAgent {
   LegacyInputAgent({
     required List<Message> initialMessages,
   }) : super(
-         config: AgentConfig(
-           threadId: 'thread-1',
-           initialMessages: initialMessages,
-         ),
-       );
+          config: AgentConfig(
+            threadId: 'thread-1',
+            initialMessages: initialMessages,
+          ),
+        );
 
   @override
   String get maxVersion => '0.0.39';
@@ -177,7 +179,8 @@ class LegacyInputAgent extends AbstractAgent {
 }
 
 class LegacyThinkingAgent extends AbstractAgent {
-  LegacyThinkingAgent() : super(config: const AgentConfig(threadId: 'thread-1'));
+  LegacyThinkingAgent()
+      : super(config: const AgentConfig(threadId: 'thread-1'));
 
   @override
   String get maxVersion => '0.0.45';
@@ -187,14 +190,14 @@ class LegacyThinkingAgent extends AbstractAgent {
 
   @override
   Stream<BaseEvent> run(RunAgentInput input) => Stream<BaseEvent>.fromIterable([
-    RunStartedEvent(threadId: input.threadId, runId: input.runId),
-    const ThinkingStartEvent(),
-    const ThinkingTextMessageStartEvent(),
-    const ThinkingTextMessageContentEvent(delta: 'thinking'),
-    const ThinkingTextMessageEndEvent(),
-    const ThinkingEndEvent(),
-    RunFinishedEvent(threadId: input.threadId, runId: input.runId),
-  ]);
+        RunStartedEvent(threadId: input.threadId, runId: input.runId),
+        const ThinkingStartEvent(),
+        const ThinkingTextMessageStartEvent(),
+        const ThinkingTextMessageContentEvent(delta: 'thinking'),
+        const ThinkingTextMessageEndEvent(),
+        const ThinkingEndEvent(),
+        RunFinishedEvent(threadId: input.threadId, runId: input.runId),
+      ]);
 }
 
 class LegacyBinaryAgent extends AbstractAgent {
@@ -203,11 +206,11 @@ class LegacyBinaryAgent extends AbstractAgent {
   LegacyBinaryAgent({
     required List<Message> initialMessages,
   }) : super(
-         config: AgentConfig(
-           threadId: 'thread-1',
-           initialMessages: initialMessages,
-         ),
-       );
+          config: AgentConfig(
+            threadId: 'thread-1',
+            initialMessages: initialMessages,
+          ),
+        );
 
   @override
   String get maxVersion => '0.0.47';
@@ -234,14 +237,14 @@ class TextChunkAgent extends AbstractAgent {
 
   @override
   Stream<BaseEvent> run(RunAgentInput input) => Stream<BaseEvent>.fromIterable([
-    RunStartedEvent(threadId: input.threadId, runId: input.runId),
-    const TextMessageChunkEvent(
-      messageId: 'msg-1',
-      role: TextMessageRole.assistant,
-      delta: 'Hello from agent',
-    ),
-    RunFinishedEvent(threadId: input.threadId, runId: input.runId),
-  ]);
+        RunStartedEvent(threadId: input.threadId, runId: input.runId),
+        const TextMessageChunkEvent(
+          messageId: 'msg-1',
+          role: TextMessageRole.assistant,
+          delta: 'Hello from agent',
+        ),
+        RunFinishedEvent(threadId: input.threadId, runId: input.runId),
+      ]);
 }
 
 class ToolCallChunkAgent extends AbstractAgent {
@@ -254,20 +257,20 @@ class ToolCallChunkAgent extends AbstractAgent {
 
   @override
   Stream<BaseEvent> run(RunAgentInput input) => Stream<BaseEvent>.fromIterable([
-    RunStartedEvent(threadId: input.threadId, runId: input.runId),
-    const ToolCallChunkEvent(
-      toolCallId: 'tc-1',
-      toolCallName: 'get_weather',
-      parentMessageId: 'msg-1',
-      delta: '{"city":"NYC"}',
-    ),
-    const ToolCallResultEvent(
-      messageId: 'tool-result-1',
-      toolCallId: 'tc-1',
-      content: '72F',
-    ),
-    RunFinishedEvent(threadId: input.threadId, runId: input.runId),
-  ]);
+        RunStartedEvent(threadId: input.threadId, runId: input.runId),
+        const ToolCallChunkEvent(
+          toolCallId: 'tc-1',
+          toolCallName: 'get_weather',
+          parentMessageId: 'msg-1',
+          delta: '{"city":"NYC"}',
+        ),
+        const ToolCallResultEvent(
+          messageId: 'tool-result-1',
+          toolCallId: 'tc-1',
+          content: '72F',
+        ),
+        RunFinishedEvent(threadId: input.threadId, runId: input.runId),
+      ]);
 }
 
 class TextAndStateAgent extends AbstractAgent {
@@ -280,20 +283,20 @@ class TextAndStateAgent extends AbstractAgent {
 
   @override
   Stream<BaseEvent> run(RunAgentInput input) => Stream<BaseEvent>.fromIterable([
-    RunStartedEvent(threadId: input.threadId, runId: input.runId),
-    const StateSnapshotEvent(snapshot: {'temperature': 72}),
-    const TextMessageChunkEvent(
-      messageId: 'msg-1',
-      role: TextMessageRole.assistant,
-      delta: 'Weather is nice',
-    ),
-    const StateDeltaEvent(
-      delta: [
-        {'op': 'replace', 'path': '/temperature', 'value': 75},
-      ],
-    ),
-    RunFinishedEvent(threadId: input.threadId, runId: input.runId),
-  ]);
+        RunStartedEvent(threadId: input.threadId, runId: input.runId),
+        const StateSnapshotEvent(snapshot: {'temperature': 72}),
+        const TextMessageChunkEvent(
+          messageId: 'msg-1',
+          role: TextMessageRole.assistant,
+          delta: 'Weather is nice',
+        ),
+        const StateDeltaEvent(
+          delta: [
+            {'op': 'replace', 'path': '/temperature', 'value': 75},
+          ],
+        ),
+        RunFinishedEvent(threadId: input.threadId, runId: input.runId),
+      ]);
 }
 
 class MessagesSnapshotAgent extends AbstractAgent {
@@ -306,21 +309,21 @@ class MessagesSnapshotAgent extends AbstractAgent {
 
   @override
   Stream<BaseEvent> run(RunAgentInput input) => Stream<BaseEvent>.fromIterable([
-    RunStartedEvent(threadId: input.threadId, runId: input.runId),
-    const TextMessageStartEvent(
-      messageId: 'msg-1',
-      role: TextMessageRole.assistant,
-    ),
-    const TextMessageContentEvent(messageId: 'msg-1', delta: 'original'),
-    const TextMessageEndEvent(messageId: 'msg-1'),
-    MessagesSnapshotEvent(
-      messages: [
-        UserMessage(id: 'snap-1', content: 'question'),
-        AssistantMessage(id: 'snap-2', content: 'answer'),
-      ],
-    ),
-    RunFinishedEvent(threadId: input.threadId, runId: input.runId),
-  ]);
+        RunStartedEvent(threadId: input.threadId, runId: input.runId),
+        const TextMessageStartEvent(
+          messageId: 'msg-1',
+          role: TextMessageRole.assistant,
+        ),
+        const TextMessageContentEvent(messageId: 'msg-1', delta: 'original'),
+        const TextMessageEndEvent(messageId: 'msg-1'),
+        MessagesSnapshotEvent(
+          messages: [
+            UserMessage(id: 'snap-1', content: 'question'),
+            AssistantMessage(id: 'snap-2', content: 'answer'),
+          ],
+        ),
+        RunFinishedEvent(threadId: input.threadId, runId: input.runId),
+      ]);
 }
 
 void main() {
@@ -397,6 +400,94 @@ void main() {
       expect(events.last, isA<RunFinishedEvent>());
     });
 
+    test('FilterToolCallsMiddleware resets at a run boundary', () async {
+      final agent = CapturingAgent(
+        eventsToEmit: const [
+          RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
+          ToolCallStartEvent(
+            toolCallId: 'call-1',
+            toolCallName: 'calculator',
+          ),
+          // No result: the id stays blocked for the rest of run 1.
+          RunFinishedEvent(threadId: 'thread-1', runId: 'run-1'),
+          RunStartedEvent(threadId: 'thread-1', runId: 'run-2'),
+          // Run 2 reuses the id for a tool that is allowed.
+          ToolCallStartEvent(
+            toolCallId: 'call-1',
+            toolCallName: 'weather',
+          ),
+          ToolCallArgsEvent(toolCallId: 'call-1', delta: '{}'),
+          ToolCallEndEvent(toolCallId: 'call-1'),
+          RunFinishedEvent(threadId: 'thread-1', runId: 'run-2'),
+        ],
+      );
+      final middleware = FilterToolCallsMiddleware(
+        disallowedToolCalls: const ['calculator'],
+      );
+
+      final events = await middleware
+          .run(
+            RunAgentInput(
+              threadId: 'thread-1',
+              runId: 'run-1',
+              state: const {},
+              messages: const [],
+              tools: const [],
+              context: const [],
+              forwardedProps: const {},
+            ),
+            agent,
+          )
+          .toList();
+
+      final toolStarts = events.whereType<ToolCallStartEvent>().toList();
+      expect(toolStarts.map((event) => event.toolCallName), ['weather']);
+      expect(events.whereType<ToolCallArgsEvent>(), hasLength(1));
+    });
+
+    test('BackwardCompatibility_0_0_57 strips attribution nested in an outcome',
+        () async {
+      final agent = CapturingAgent(
+        eventsToEmit: const [
+          RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
+          RunFinishedEvent(
+            threadId: 'thread-1',
+            runId: 'run-1',
+            outcome: RunFinishedInterruptOutcome(
+              interrupts: [
+                Interrupt(
+                  id: 'interrupt-1',
+                  reason: 'approval',
+                  subagentRunId: 'sub-1',
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final middleware = BackwardCompatibility_0_0_57();
+
+      final events = await middleware
+          .run(
+            RunAgentInput(
+              threadId: 'thread-1',
+              runId: 'run-1',
+              state: const {},
+              messages: const [],
+              tools: const [],
+              context: const [],
+              forwardedProps: const {},
+            ),
+            agent,
+          )
+          .toList();
+
+      final finished = events.whereType<RunFinishedEvent>().single;
+      final outcome = finished.outcome as RunFinishedInterruptOutcome;
+      expect(outcome.interrupts.single.id, 'interrupt-1');
+      expect(outcome.interrupts.single.subagentRunId, isNull);
+    });
+
     test('auto inserts 0.0.39 compatibility middleware', () async {
       final agent = LegacyInputAgent(
         initialMessages: [
@@ -416,20 +507,24 @@ void main() {
 
       expect(agent.receivedInput, isNotNull);
       expect(agent.receivedInput!.parentRunId, isNull);
-      expect((agent.receivedInput!.messages[0] as UserMessage).textContent, 'Hello world!');
+      expect((agent.receivedInput!.messages[0] as UserMessage).textContent,
+          'Hello world!');
       expect(agent.receivedInput!.messages[1].content, '');
     });
 
     test('auto inserts 0.0.45 compatibility middleware', () async {
       final agent = LegacyThinkingAgent();
 
-      final result = await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
+      final result =
+          await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
 
       expect(result.newMessages.whereType<ReasoningMessage>(), hasLength(1));
-      expect(result.newMessages.whereType<ReasoningMessage>().single.content, 'thinking');
+      expect(result.newMessages.whereType<ReasoningMessage>().single.content,
+          'thinking');
     });
 
-    test('BackwardCompatibility_0_0_45 transforms a complete thinking flow', () async {
+    test('BackwardCompatibility_0_0_45 transforms a complete thinking flow',
+        () async {
       final middleware = BackwardCompatibility_0_0_45();
       final agent = CapturingAgent(
         eventsToEmit: const [
@@ -473,18 +568,25 @@ void main() {
       final reasoningStart = events[1] as ReasoningStartEvent;
       final reasoningMessageStart = events[2] as ReasoningMessageStartEvent;
       expect(reasoningStart.messageId, isNotEmpty);
-      expect((events[6] as ReasoningEndEvent).messageId, reasoningStart.messageId);
-      expect(reasoningMessageStart.role, 'assistant');
-      expect((events[3] as ReasoningMessageContentEvent).messageId, reasoningMessageStart.messageId);
-      expect((events[4] as ReasoningMessageContentEvent).messageId, reasoningMessageStart.messageId);
-      expect((events[5] as ReasoningMessageEndEvent).messageId, reasoningMessageStart.messageId);
+      expect(
+          (events[6] as ReasoningEndEvent).messageId, reasoningStart.messageId);
+      expect(reasoningMessageStart.role, 'reasoning');
+      expect((events[3] as ReasoningMessageContentEvent).messageId,
+          reasoningMessageStart.messageId);
+      expect((events[4] as ReasoningMessageContentEvent).messageId,
+          reasoningMessageStart.messageId);
+      expect((events[5] as ReasoningMessageEndEvent).messageId,
+          reasoningMessageStart.messageId);
     });
 
-    test('BackwardCompatibility_0_0_45 passes through non-thinking events unchanged', () async {
+    test(
+        'BackwardCompatibility_0_0_45 passes through non-thinking events unchanged',
+        () async {
       final middleware = BackwardCompatibility_0_0_45();
       final agent = CapturingAgent(
         eventsToEmit: const [
-          TextMessageStartEvent(messageId: 'msg-1', role: TextMessageRole.assistant),
+          TextMessageStartEvent(
+              messageId: 'msg-1', role: TextMessageRole.assistant),
           TextMessageContentEvent(messageId: 'msg-1', delta: 'Hello'),
           TextMessageEndEvent(messageId: 'msg-1'),
         ],
@@ -528,12 +630,16 @@ void main() {
 
       await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
 
-      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
+      final content =
+          (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content.single, isA<ImageInputContent>());
-      expect((content.single as ImageInputContent).source, isA<InputContentDataSource>());
+      expect((content.single as ImageInputContent).source,
+          isA<InputContentDataSource>());
     });
 
-    test('BackwardCompatibility_0_0_47 passes through plain string content unchanged', () async {
+    test(
+        'BackwardCompatibility_0_0_47 passes through plain string content unchanged',
+        () async {
       final middleware = BackwardCompatibility_0_0_47();
       final agent = CapturingAgent();
 
@@ -554,10 +660,13 @@ void main() {
           )
           .drain<void>();
 
-      expect((agent.receivedInput!.messages.single as UserMessage).textContent, 'hello world');
+      expect((agent.receivedInput!.messages.single as UserMessage).textContent,
+          'hello world');
     });
 
-    test('BackwardCompatibility_0_0_47 passes through text content parts unchanged', () async {
+    test(
+        'BackwardCompatibility_0_0_47 passes through text content parts unchanged',
+        () async {
       final middleware = BackwardCompatibility_0_0_47();
       final agent = CapturingAgent();
 
@@ -581,12 +690,14 @@ void main() {
           )
           .drain<void>();
 
-      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
+      final content =
+          (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content.single, isA<TextInputContent>());
       expect((content.single as TextInputContent).text, 'hello');
     });
 
-    test('BackwardCompatibility_0_0_47 upgrades binary url audio content', () async {
+    test('BackwardCompatibility_0_0_47 upgrades binary url audio content',
+        () async {
       final middleware = BackwardCompatibility_0_0_47();
       final agent = CapturingAgent();
 
@@ -615,14 +726,18 @@ void main() {
           )
           .drain<void>();
 
-      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
+      final content =
+          (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content.single, isA<AudioInputContent>());
-      final source = (content.single as AudioInputContent).source as InputContentUrlSource;
+      final source =
+          (content.single as AudioInputContent).source as InputContentUrlSource;
       expect(source.value, 'https://example.com/audio.mp3');
       expect(source.mimeType, 'audio/mp3');
     });
 
-    test('BackwardCompatibility_0_0_47 upgrades video and document binary content', () async {
+    test(
+        'BackwardCompatibility_0_0_47 upgrades video and document binary content',
+        () async {
       final middleware = BackwardCompatibility_0_0_47();
       final agent = CapturingAgent();
 
@@ -652,12 +767,15 @@ void main() {
           )
           .drain<void>();
 
-      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
+      final content =
+          (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content[0], isA<VideoInputContent>());
       expect(content[1], isA<DocumentInputContent>());
     });
 
-    test('BackwardCompatibility_0_0_47 preserves filename metadata and prefers data over url', () async {
+    test(
+        'BackwardCompatibility_0_0_47 preserves filename metadata and prefers data over url',
+        () async {
       final middleware = BackwardCompatibility_0_0_47();
       final agent = CapturingAgent();
 
@@ -688,14 +806,16 @@ void main() {
           )
           .drain<void>();
 
-      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
+      final content =
+          (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       final image = content.single as ImageInputContent;
       expect(image.metadata, {'filename': 'photo.jpg'});
       expect(image.source, isA<InputContentDataSource>());
       expect((image.source as InputContentDataSource).value, 'base64data');
     });
 
-    test('BackwardCompatibility_0_0_47 leaves id-only binary content unchanged', () async {
+    test('BackwardCompatibility_0_0_47 leaves id-only binary content unchanged',
+        () async {
       final middleware = BackwardCompatibility_0_0_47();
       final agent = CapturingAgent();
 
@@ -724,12 +844,15 @@ void main() {
           )
           .drain<void>();
 
-      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
+      final content =
+          (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content.single, isA<BinaryInputContent>());
       expect((content.single as BinaryInputContent).id, 'file-123');
     });
 
-    test('BackwardCompatibility_0_0_47 upgrades only legacy binary parts in mixed user content', () async {
+    test(
+        'BackwardCompatibility_0_0_47 upgrades only legacy binary parts in mixed user content',
+        () async {
       final middleware = BackwardCompatibility_0_0_47();
       final agent = CapturingAgent();
 
@@ -746,7 +869,8 @@ void main() {
                     TextInputContent(text: 'Look at this:'),
                     BinaryInputContent(mimeType: 'image/png', data: 'imgdata'),
                     ImageInputContent(
-                      source: InputContentUrlSource(value: 'https://example.com/img.png'),
+                      source: InputContentUrlSource(
+                          value: 'https://example.com/img.png'),
                     ),
                   ],
                 ),
@@ -759,17 +883,25 @@ void main() {
           )
           .drain<void>();
 
-      final content = (agent.receivedInput!.messages.single as UserMessage).contentParts!;
+      final content =
+          (agent.receivedInput!.messages.single as UserMessage).contentParts!;
       expect(content, hasLength(3));
       expect(content[0], isA<TextInputContent>());
       expect((content[0] as TextInputContent).text, 'Look at this:');
       expect(content[1], isA<ImageInputContent>());
       expect(content[2], isA<ImageInputContent>());
-      expect(((content[1] as ImageInputContent).source as InputContentDataSource).value, 'imgdata');
-      expect(((content[2] as ImageInputContent).source as InputContentUrlSource).value, 'https://example.com/img.png');
+      expect(
+          ((content[1] as ImageInputContent).source as InputContentDataSource)
+              .value,
+          'imgdata');
+      expect(
+          ((content[2] as ImageInputContent).source as InputContentUrlSource)
+              .value,
+          'https://example.com/img.png');
     });
 
-    test('BackwardCompatibility_0_0_47 does not modify non-user messages', () async {
+    test('BackwardCompatibility_0_0_47 does not modify non-user messages',
+        () async {
       final middleware = BackwardCompatibility_0_0_47();
       final agent = CapturingAgent();
 
@@ -802,7 +934,8 @@ void main() {
         ..use(outer)
         ..use(inner);
 
-      final result = await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
+      final result =
+          await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
 
       expect(result.newMessages, hasLength(1));
       expect(result.newMessages.single, isA<AssistantMessage>());
@@ -815,7 +948,8 @@ void main() {
       }
     });
 
-    test('chained middlewares track tool-call chunk expansion and tool result', () async {
+    test('chained middlewares track tool-call chunk expansion and tool result',
+        () async {
       final outer = StateCapturingMiddleware();
       final inner = StateCapturingMiddleware();
       final agent = ToolCallChunkAgent()
@@ -830,7 +964,8 @@ void main() {
         expect(assistant.toolCalls, hasLength(1));
         expect(assistant.toolCalls!.single.id, 'tc-1');
         expect(assistant.toolCalls!.single.function.name, 'get_weather');
-        expect(assistant.toolCalls!.single.function.arguments, '{"city":"NYC"}');
+        expect(
+            assistant.toolCalls!.single.function.arguments, '{"city":"NYC"}');
 
         final tool = middleware.capturedMessages.last as ToolMessage;
         expect(tool.content, '72F');
@@ -838,7 +973,8 @@ void main() {
       }
     });
 
-    test('chained middlewares propagate state snapshot and state delta', () async {
+    test('chained middlewares propagate state snapshot and state delta',
+        () async {
       final outer = StateCapturingMiddleware();
       final inner = StateCapturingMiddleware();
       final agent = TextAndStateAgent()
@@ -852,8 +988,10 @@ void main() {
       expect(inner.capturedMessages.single.content, 'Weather is nice');
       expect(outer.capturedMessages.single.content, 'Weather is nice');
 
-      final snapshotSeen = inner.seen.where((item) => item.event is StateSnapshotEvent).single;
-      final deltaSeen = inner.seen.where((item) => item.event is StateDeltaEvent).single;
+      final snapshotSeen =
+          inner.seen.where((item) => item.event is StateSnapshotEvent).single;
+      final deltaSeen =
+          inner.seen.where((item) => item.event is StateDeltaEvent).single;
       expect(snapshotSeen.state, {'temperature': 72});
       expect(deltaSeen.state, {'temperature': 75});
     });
@@ -870,7 +1008,8 @@ void main() {
       for (final middleware in [outer, inner]) {
         expect(middleware.capturedMessages, hasLength(2));
         expect(middleware.capturedMessages[0].id, 'snap-1');
-        expect((middleware.capturedMessages[0] as UserMessage).textContent, 'question');
+        expect((middleware.capturedMessages[0] as UserMessage).textContent,
+            'question');
         expect(middleware.capturedMessages[1].id, 'snap-2');
         expect(middleware.capturedMessages[1].content, 'answer');
       }
@@ -892,7 +1031,8 @@ void main() {
       expect(capturing.capturedState, {'injected': true});
     });
 
-    test('function middleware intercepts events when used through agent', () async {
+    test('function middleware intercepts events when used through agent',
+        () async {
       final seenFinished = <RunFinishedEvent>[];
       final agent = TextChunkAgent()
         ..use((RunAgentInput input, AbstractAgent next) async* {
@@ -907,7 +1047,8 @@ void main() {
           }
         });
 
-      final result = await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
+      final result =
+          await agent.runAgent(const RunAgentParameters(runId: 'run-1'));
 
       expect(result.newMessages.single.content, 'Hello from agent');
       expect(seenFinished, hasLength(1));

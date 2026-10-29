@@ -1,13 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 
 import '../encoder/client_codec.dart' as codec;
 import '../encoder/stream_adapter.dart' show EventStreamAdapter;
 import '../events/events.dart';
+import '../proto/proto.dart' show agUiMediaType;
+import '../run/http_request.dart' show HttpDataEvent;
 import '../sse/sse_client.dart';
 import '../sse/sse_message.dart';
+import '../transform/proto.dart' show parseProtoStream;
 import '../types/types.dart';
 import 'config.dart';
 import 'errors.dart';
@@ -73,11 +78,10 @@ class AgUiClient {
     // Validate inputs
     Validators.validateUrl(config.baseUrl, 'baseUrl');
     Validators.requireNonEmpty(endpoint, 'endpoint');
-    
-    final fullEndpoint = endpoint.startsWith('http') 
-        ? endpoint 
-        : '${config.baseUrl}/$endpoint';
-    
+
+    final fullEndpoint =
+        endpoint.startsWith('http') ? endpoint : '${config.baseUrl}/$endpoint';
+
     return _runAgentInternal(fullEndpoint, input, cancelToken: cancelToken);
   }
 
@@ -118,7 +122,8 @@ class AgUiClient {
     SimpleRunAgentInput input, {
     CancelToken? cancelToken,
   }) {
-    return runAgent('tool_based_generative_ui', input, cancelToken: cancelToken);
+    return runAgent('tool_based_generative_ui', input,
+        cancelToken: cancelToken);
   }
 
   /// Run the shared state agent.
@@ -138,7 +143,8 @@ class AgUiClient {
     SimpleRunAgentInput input, {
     CancelToken? cancelToken,
   }) {
-    return runAgent('predictive_state_updates', input, cancelToken: cancelToken);
+    return runAgent('predictive_state_updates', input,
+        cancelToken: cancelToken);
   }
 
   /// Internal implementation for running an agent
@@ -183,6 +189,19 @@ class AgUiClient {
         );
       }
 
+      // A protobuf response is the same run in the binary transport, and the
+      // server decides which one it sends. Dispatch on what it sent instead of
+      // assuming SSE, so a binary producer is readable at all.
+      if ((streamedResponse.headers['content-type'] ?? '')
+          .contains(agUiMediaType)) {
+        yield* parseProtoStream(
+          streamedResponse.stream.map(
+            (chunk) => HttpDataEvent(data: Uint8List.fromList(chunk)),
+          ),
+        );
+        return;
+      }
+
       // Create SSE client from response stream
       final sseClient = SseClient(
         idleTimeout: config.connectionTimeout,
@@ -198,11 +217,27 @@ class AgUiClient {
 
       // Transform to AG-UI events
       yield* _transformSseStream(sseStream, runId);
+    } on CancellationError catch (error) {
+      // An aborted run still ends. Throwing here unwound the pipeline with no
+      // closing event, leaving downstream stages — verify, apply, the run
+      // result — with a half-open run; the terminal RUN_ERROR is what every
+      // one of them finishes on, and `code: "abort"` is how the transport
+      // reports a cancellation the peer did not produce.
+      yield RunErrorEvent(
+        message: error.message.isEmpty ? 'Request aborted' : error.message,
+        code: 'abort',
+        rawEvent: error,
+      );
     } on AgUiError {
       rethrow;
     } catch (e) {
       if (cancelToken.isCancelled) {
-        throw CancellationError('Request was cancelled', operation: endpoint);
+        yield RunErrorEvent(
+          message: 'Request aborted',
+          code: 'abort',
+          rawEvent: e,
+        );
+        return;
       }
       if (e is TimeoutException) {
         throw TimeoutError(
@@ -230,19 +265,20 @@ class AgUiClient {
   ) async {
     // Create completer for cancellation
     final completer = Completer<http.StreamedResponse>();
-    
+
     // Start the request
     final future = _httpClient.send(request).timeout(timeout);
-    
+
     // Listen for cancellation
     cancelToken.onCancel.then((_) {
       if (!completer.isCompleted) {
         completer.completeError(
-          CancellationError('Request cancelled', operation: request.url.toString()),
+          CancellationError('Request cancelled',
+              operation: request.url.toString()),
         );
       }
     });
-    
+
     // Complete with result or error
     future.then(
       (response) {
@@ -256,7 +292,7 @@ class AgUiClient {
         }
       },
     );
-    
+
     return completer.future;
   }
 
@@ -267,7 +303,7 @@ class AgUiClient {
     if (token != null && !token.isCancelled) {
       token.cancel();
     }
-    
+
     // Close any active stream
     await _closeStream(runId);
   }
@@ -286,10 +322,10 @@ class AgUiClient {
         try {
           // Parse the SSE data as JSON
           final jsonData = json.decode(message.data!);
-          
+
           // Use the stream adapter to convert to typed events
           final events = _streamAdapter.adaptJsonToEvents(jsonData);
-          
+
           for (final event in events) {
             yield event;
           }
@@ -314,7 +350,7 @@ class AgUiClient {
   }
 
   /// Send an HTTP request with retries
-  /// 
+  ///
   /// Exposed for testing HTTP retry logic
   @visibleForTesting
   Future<http.Response> sendRequest(
@@ -338,17 +374,15 @@ class AgUiClient {
         }
 
         final uri = Uri.parse(endpoint);
-        final request = http.Request(method, uri)
-          ..headers.addAll(headers);
+        final request = http.Request(method, uri)..headers.addAll(headers);
 
         if (body != null) {
           request.body = json.encode(body);
         }
 
-        final streamedResponse = await _httpClient
-            .send(request)
-            .timeout(config.requestTimeout);
-        
+        final streamedResponse =
+            await _httpClient.send(request).timeout(config.requestTimeout);
+
         final response = await http.Response.fromStream(streamedResponse);
 
         // Success or client error (don't retry)
@@ -380,7 +414,7 @@ class AgUiClient {
         nextDelay = config.backoffStrategy.nextDelay(attempts);
       } catch (e) {
         if (e is AgUiError) rethrow;
-        
+
         attempts++;
         if (attempts > config.maxRetries) {
           throw TransportError(
@@ -407,7 +441,7 @@ class AgUiClient {
   ) {
     // Validate status code
     Validators.validateStatusCode(response.statusCode, endpoint, response.body);
-    
+
     try {
       final data = Validators.validateJson(
         json.decode(response.body),
@@ -433,7 +467,7 @@ class AgUiClient {
     if (input.threadId != null) {
       Validators.requireNonEmpty(input.threadId!, 'threadId');
     }
-    
+
     // Validate messages if present
     if (input.messages != null) {
       for (final message in input.messages!) {
@@ -478,12 +512,12 @@ class AgUiClient {
       token.cancel();
     }
     _requestTokens.clear();
-    
+
     // Close all active streams
     final closeOps = _activeStreams.values.map((c) => c.close());
     await Future.wait(closeOps);
     _activeStreams.clear();
-    
+
     // Close HTTP client
     _httpClient.close();
   }
@@ -508,16 +542,19 @@ class CancelToken {
 }
 
 /// Simplified input for running an agent via HTTP endpoint
+///
+/// The field set is exactly the 1.0 `RunAgentInput` schema's, which is closed
+/// (`unevaluatedProperties: false`): anything else would make a strict receiver
+/// reject the entire run.
 class SimpleRunAgentInput {
   final String? threadId;
   final String? runId;
   final String? parentRunId;
+  final String? protocolVersion;
   final List<Message>? messages;
   final List<Tool>? tools;
   final List<Context>? context;
   final Object? state;
-  final Map<String, dynamic>? config;
-  final Map<String, dynamic>? metadata;
   final Object? forwardedProps;
   final List<ResumeEntry>? resume;
 
@@ -525,12 +562,11 @@ class SimpleRunAgentInput {
     this.threadId,
     this.runId,
     this.parentRunId,
+    this.protocolVersion,
     this.messages,
     this.tools,
     this.context,
     this.state,
-    this.config,
-    this.metadata,
     this.forwardedProps,
     this.resume,
   });
@@ -540,6 +576,7 @@ class SimpleRunAgentInput {
       threadId: input.threadId,
       runId: input.runId,
       parentRunId: input.parentRunId,
+      protocolVersion: input.protocolVersion,
       messages: input.messages,
       tools: input.tools,
       context: input.context,
@@ -554,14 +591,19 @@ class SimpleRunAgentInput {
       if (threadId != null) 'threadId': threadId,
       if (runId != null) 'runId': runId,
       if (parentRunId != null) 'parentRunId': parentRunId,
-      'state': state ?? {},
+      if (protocolVersion != null) 'protocolVersion': protocolVersion,
+      // The 1.0 schema forbids `null` in the input's `state` slot
+      // (`state: { not: { type: "null" } }`), so an unset state is ABSENT, not
+      // null. A `STATE_SNAPSHOT` may still set the agent's state to null; the
+      // next run then simply carries no state, which is what "no state" means
+      // to a receiver.
+      if (state != null) 'state': state,
       'messages': messages?.map((m) => m.toJson()).toList() ?? [],
       'tools': tools?.map((t) => t.toJson()).toList() ?? [],
       'context': context?.map((c) => c.toJson()).toList() ?? [],
       'forwardedProps': forwardedProps ?? {},
-      if (resume != null) 'resume': resume!.map((item) => item.toJson()).toList(),
-      if (config != null) 'config': config,
-      if (metadata != null) 'metadata': metadata,
+      if (resume != null)
+        'resume': resume!.map((item) => item.toJson()).toList(),
     };
   }
 }

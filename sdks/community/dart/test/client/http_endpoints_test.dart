@@ -64,8 +64,6 @@ void main() {
               content: 'Hello, agent!',
             ),
           ],
-          config: {'temperature': 0.7},
-          metadata: {'source': 'test'},
         );
         
         String? capturedBody;
@@ -110,8 +108,23 @@ void main() {
         expect(bodyJson['threadId'], 'thread_123');
         expect(bodyJson['runId'], 'run_456');
         expect(bodyJson['messages'], hasLength(1));
-        expect(bodyJson['config']['temperature'], 0.7);
-        expect(bodyJson['metadata']['source'], 'test');
+        // The 1.0 input schema is closed (`unevaluatedProperties: false`), so
+        // nothing outside its field set may reach the wire.
+        expect(
+          bodyJson.keys,
+          everyElement(isIn(const [
+            'threadId',
+            'runId',
+            'parentRunId',
+            'protocolVersion',
+            'state',
+            'messages',
+            'tools',
+            'context',
+            'forwardedProps',
+            'resume',
+          ])),
+        );
         
         expect(events, hasLength(2));
         expect(events[0], isA<RunStartedEvent>());
@@ -236,12 +249,17 @@ void main() {
           200,
         ));
         
-        // Assert
-        expect(
-          futureEvents,
-          throwsA(isA<CancellationError>()
-              .having((e) => e.message, 'message', contains('cancelled'))),
-        );
+        // Assert: cancellation terminates the run instead of unwinding it. The
+        // consumer sees the same closing event a peer-reported failure
+        // produces, tagged with the transport's own "abort" code.
+        final events = await futureEvents;
+        expect(events, hasLength(1));
+        final terminal = events.single;
+        expect(terminal, isA<RunErrorEvent>());
+        final error = terminal as RunErrorEvent;
+        expect(error.code, 'abort');
+        expect(error.message.toLowerCase(), contains('cancel'));
+        expect(error.rawEvent, isA<CancellationError>());
       });
     });
     

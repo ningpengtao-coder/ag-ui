@@ -19,9 +19,10 @@ void main() {
 
     group('decode', () {
       test('decodes simple text message start event', () {
-        final json = '{"type":"TEXT_MESSAGE_START","messageId":"msg123","role":"assistant"}';
+        final json =
+            '{"type":"TEXT_MESSAGE_START","messageId":"msg123","role":"assistant"}';
         final event = decoder.decode(json);
-        
+
         expect(event, isA<TextMessageStartEvent>());
         final textEvent = event as TextMessageStartEvent;
         expect(textEvent.messageId, equals('msg123'));
@@ -29,9 +30,10 @@ void main() {
       });
 
       test('decodes text message content event', () {
-        final json = '{"type":"TEXT_MESSAGE_CONTENT","messageId":"msg123","delta":"Hello, world!"}';
+        final json =
+            '{"type":"TEXT_MESSAGE_CONTENT","messageId":"msg123","delta":"Hello, world!"}';
         final event = decoder.decode(json);
-        
+
         expect(event, isA<TextMessageContentEvent>());
         final textEvent = event as TextMessageContentEvent;
         expect(textEvent.messageId, equals('msg123'));
@@ -39,9 +41,10 @@ void main() {
       });
 
       test('decodes tool call events', () {
-        final json = '{"type":"TOOL_CALL_START","toolCallId":"tool456","toolCallName":"search"}';
+        final json =
+            '{"type":"TOOL_CALL_START","toolCallId":"tool456","toolCallName":"search"}';
         final event = decoder.decode(json);
-        
+
         expect(event, isA<ToolCallStartEvent>());
         final toolEvent = event as ToolCallStartEvent;
         expect(toolEvent.toolCallId, equals('tool456'));
@@ -50,31 +53,33 @@ void main() {
 
       test('throws DecodingError for invalid JSON', () {
         final invalidJson = 'not valid json';
-        
+
         expect(
           () => decoder.decode(invalidJson),
           throwsA(isA<DecodingError>()
-            .having((e) => e.message, 'message', contains('Invalid JSON'))
-            .having((e) => e.actualValue, 'actualValue', equals(invalidJson))),
+              .having((e) => e.message, 'message', contains('Invalid JSON'))
+              .having(
+                  (e) => e.actualValue, 'actualValue', equals(invalidJson))),
         );
       });
 
       test('throws DecodingError for missing required fields', () {
         final json = '{"type":"TEXT_MESSAGE_START"}'; // Missing messageId
-        
+
         expect(
           () => decoder.decode(json),
-          throwsA(isA<DecodingError>()),  // Event creation fails before validation
+          throwsA(
+              isA<DecodingError>()), // Event creation fails before validation
         );
       });
 
-      test('throws DecodingError for empty delta in content event', () {
-        final json = '{"type":"TEXT_MESSAGE_CONTENT","messageId":"msg123","delta":""}';
-        
-        expect(
-          () => decoder.decode(json),
-          throwsA(isA<DecodingError>()),  // Event creation fails
-        );
+      test('accepts an empty delta as a keep-alive', () {
+        final json =
+            '{"type":"TEXT_MESSAGE_CONTENT","messageId":"msg123","delta":""}';
+
+        final event = decoder.decode(json);
+        expect(event, isA<TextMessageContentEvent>());
+        expect((event as TextMessageContentEvent).delta, '');
       });
     });
 
@@ -85,9 +90,9 @@ void main() {
           'threadId': 'thread789',
           'runId': 'run012',
         };
-        
+
         final event = decoder.decodeJson(json);
-        
+
         expect(event, isA<RunStartedEvent>());
         final runEvent = event as RunStartedEvent;
         expect(runEvent.threadId, equals('thread789'));
@@ -100,9 +105,9 @@ void main() {
           'thread_id': 'thread789',
           'run_id': 'run012',
         };
-        
+
         final event = decoder.decodeJson(json);
-        
+
         expect(event, isA<RunStartedEvent>());
         final runEvent = event as RunStartedEvent;
         expect(runEvent.threadId, equals('thread789'));
@@ -124,9 +129,9 @@ void main() {
             },
           },
         };
-        
+
         final event = decoder.decodeJson(json);
-        
+
         expect(event, isA<StateSnapshotEvent>());
         final stateEvent = event as StateSnapshotEvent;
         expect(stateEvent.snapshot, isA<Map>());
@@ -150,15 +155,16 @@ void main() {
             },
           ],
         };
-        
+
         final event = decoder.decodeJson(json);
-        
+
         expect(event, isA<MessagesSnapshotEvent>());
         final messagesEvent = event as MessagesSnapshotEvent;
         expect(messagesEvent.messages.length, equals(2));
         expect(messagesEvent.messages[0].id, equals('msg-1'));
         expect(messagesEvent.messages[0].role, equals(MessageRole.user));
-        expect(messagesEvent.messages[0].content, equals('Hello'));
+        expect((messagesEvent.messages[0] as UserMessage).textContent,
+            equals('Hello'));
         expect(messagesEvent.messages[1].id, equals('msg-2'));
         expect(messagesEvent.messages[1].role, equals(MessageRole.assistant));
         expect(messagesEvent.messages[1].content, equals('Hi there!'));
@@ -172,9 +178,9 @@ void main() {
           'parentMessageId': 'msg123',
           'timestamp': 1234567890,
         };
-        
+
         final event = decoder.decodeJson(json);
-        
+
         expect(event, isA<ToolCallStartEvent>());
         final toolEvent = event as ToolCallStartEvent;
         expect(toolEvent.parentMessageId, equals('msg123'));
@@ -186,9 +192,9 @@ void main() {
           'type': 'TEXT_MESSAGE_CHUNK',
           'messageId': 'msg123',
         };
-        
+
         final event = decoder.decodeJson(json);
-        
+
         expect(event, isA<TextMessageChunkEvent>());
         final chunkEvent = event as TextMessageChunkEvent;
         expect(chunkEvent.messageId, equals('msg123'));
@@ -199,18 +205,20 @@ void main() {
 
     group('decodeSSE', () {
       test('decodes complete SSE message', () {
-        final sseMessage = 'data: {"type":"TEXT_MESSAGE_START","messageId":"msg123"}\n\n';
+        final sseMessage =
+            'data: {"type":"TEXT_MESSAGE_START","messageId":"msg123"}\n\n';
         final event = decoder.decodeSSE(sseMessage);
-        
+
         expect(event, isA<TextMessageStartEvent>());
         final textEvent = event as TextMessageStartEvent;
         expect(textEvent.messageId, equals('msg123'));
       });
 
       test('decodes SSE message without space after colon', () {
-        final sseMessage = 'data:{"type":"TEXT_MESSAGE_END","messageId":"msg123"}\n\n';
+        final sseMessage =
+            'data:{"type":"TEXT_MESSAGE_END","messageId":"msg123"}\n\n';
         final event = decoder.decodeSSE(sseMessage);
-        
+
         expect(event, isA<TextMessageEndEvent>());
         final textEvent = event as TextMessageEndEvent;
         expect(textEvent.messageId, equals('msg123'));
@@ -223,7 +231,7 @@ data: "delta":"Hello"}
 
 ''';
         final event = decoder.decodeSSE(sseMessage);
-        
+
         expect(event, isA<TextMessageContentEvent>());
         final textEvent = event as TextMessageContentEvent;
         expect(textEvent.messageId, equals('msg123'));
@@ -238,7 +246,7 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
 
 ''';
         final event = decoder.decodeSSE(sseMessage);
-        
+
         expect(event, isA<RunFinishedEvent>());
         final runEvent = event as RunFinishedEvent;
         expect(runEvent.threadId, equals('t1'));
@@ -247,21 +255,21 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
 
       test('throws DecodingError for SSE without data field', () {
         final sseMessage = 'id: 123\nevent: message\n\n';
-        
+
         expect(
           () => decoder.decodeSSE(sseMessage),
           throwsA(isA<DecodingError>()
-            .having((e) => e.message, 'message', contains('No data found'))),
+              .having((e) => e.message, 'message', contains('No data found'))),
         );
       });
 
       test('throws DecodingError for SSE keep-alive comment', () {
         final sseMessage = 'data: :\n\n';
-        
+
         expect(
           () => decoder.decodeSSE(sseMessage),
           throwsA(isA<DecodingError>()
-            .having((e) => e.message, 'message', contains('keep-alive'))),
+              .having((e) => e.message, 'message', contains('keep-alive'))),
         );
       });
     });
@@ -283,9 +291,9 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
       test('decodes UTF-8 encoded JSON', () {
         final json = '{"type":"CUSTOM","name":"test","value":42}';
         final binary = Uint8List.fromList(utf8.encode(json));
-        
+
         final event = decoder.decodeBinary(binary);
-        
+
         expect(event, isA<CustomEvent>());
         final customEvent = event as CustomEvent;
         expect(customEvent.name, equals('test'));
@@ -295,9 +303,9 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
       test('decodes UTF-8 encoded SSE message', () {
         final sseMessage = 'data: {"type":"RAW","event":{"foo":"bar"}}\n\n';
         final binary = Uint8List.fromList(utf8.encode(sseMessage));
-        
+
         final event = decoder.decodeBinary(binary);
-        
+
         expect(event, isA<RawEvent>());
         final rawEvent = event as RawEvent;
         expect(rawEvent.event, equals({'foo': 'bar'}));
@@ -306,11 +314,11 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
       test('throws DecodingError for invalid UTF-8', () {
         // Invalid UTF-8 sequence
         final binary = Uint8List.fromList([0xFF, 0xFE, 0xFD]);
-        
+
         expect(
           () => decoder.decodeBinary(binary),
           throwsA(isA<DecodingError>()
-            .having((e) => e.message, 'message', contains('Invalid UTF-8'))),
+              .having((e) => e.message, 'message', contains('Invalid UTF-8'))),
         );
       });
     });
@@ -323,27 +331,23 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
 
       test('throws ValidationError for empty messageId', () {
         final event = TextMessageStartEvent(messageId: '');
-        
+
         expect(
           () => decoder.validate(event),
           throwsA(isA<ValidationError>()
-            .having((e) => e.field, 'field', equals('messageId'))
-            .having((e) => e.message, 'message', contains('cannot be empty'))),
+              .having((e) => e.field, 'field', equals('messageId'))
+              .having(
+                  (e) => e.message, 'message', contains('cannot be empty'))),
         );
       });
 
-      test('throws ValidationError for empty delta in content event', () {
+      test('accepts an empty delta in a content event', () {
         final event = TextMessageContentEvent(
           messageId: 'msg123',
           delta: '',
         );
-        
-        expect(
-          () => decoder.validate(event),
-          throwsA(isA<ValidationError>()
-            .having((e) => e.field, 'field', equals('delta'))
-            .having((e) => e.message, 'message', contains('cannot be empty'))),
-        );
+
+        expect(decoder.validate(event), isTrue);
       });
 
       test('throws ValidationError for empty tool call fields', () {
@@ -351,11 +355,11 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
           toolCallId: '',
           toolCallName: 'search',
         );
-        
+
         expect(
           () => decoder.validate(event),
           throwsA(isA<ValidationError>()
-            .having((e) => e.field, 'field', equals('toolCallId'))),
+              .having((e) => e.field, 'field', equals('toolCallId'))),
         );
       });
 
@@ -364,21 +368,21 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
           threadId: 'thread123',
           runId: '',
         );
-        
+
         expect(
           () => decoder.validate(event),
           throwsA(isA<ValidationError>()
-            .having((e) => e.field, 'field', equals('runId'))),
+              .having((e) => e.field, 'field', equals('runId'))),
         );
       });
 
       test('validates events without specific validation rules', () {
         final event = ThinkingStartEvent(title: 'Planning');
         expect(decoder.validate(event), isTrue);
-        
+
         final event2 = StateSnapshotEvent(snapshot: {});
         expect(decoder.validate(event2), isTrue);
-        
+
         final event3 = CustomEvent(name: 'test', value: null);
         expect(decoder.validate(event3), isTrue);
       });
@@ -387,7 +391,7 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
     group('error handling', () {
       test('preserves stack trace on decode errors', () {
         final invalidJson = 'not json';
-        
+
         try {
           decoder.decode(invalidJson);
           fail('Should have thrown');
@@ -397,24 +401,19 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
         }
       });
 
-      test('includes source in error for debugging', () {
+      test('keeps an unknown event type for the enforcement stage', () {
         final json = '{"type":"UNKNOWN_EVENT"}';
-        
-        try {
-          decoder.decode(json);
-          fail('Should have thrown');
-        } catch (e) {
-          expect(e, isA<DecodingError>());
-          final error = e as DecodingError;
-          // actualValue is the parsed JSON object, not the original string
-          expect(error.actualValue, isA<Map<String, dynamic>>());
-          expect(error.actualValue['type'], equals('UNKNOWN_EVENT'));
-        }
+
+        final event = decoder.decode(json);
+        expect(event, isA<UnknownEvent>());
+        final unknown = event as UnknownEvent;
+        expect(unknown.rawType, equals('UNKNOWN_EVENT'));
+        expect(unknown.attributes['type'], equals('UNKNOWN_EVENT'));
       });
 
       test('truncates long source in error toString', () {
         final longJson = '{"data":"${'x' * 300}"}';
-        
+
         try {
           decoder.decode(longJson);
           fail('Should have thrown');

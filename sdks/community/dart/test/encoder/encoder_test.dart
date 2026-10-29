@@ -157,6 +157,25 @@ void main() {
         expect(json.containsKey('delta'), isFalse);
       });
 
+      test('keeps a required field that legitimately holds null', () {
+        const events = <BaseEvent>[
+          CustomEvent(name: 'noop', value: null),
+          RawEvent(event: null),
+          StateSnapshotEvent(snapshot: null),
+        ];
+        const fields = ['value', 'event', 'snapshot'];
+
+        for (var index = 0; index < events.length; index++) {
+          final encoded = encoder.encodeSSE(events[index]);
+          final jsonStr = encoded.substring(6, encoded.length - 2);
+          final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+          expect(json.containsKey(fields[index]), isTrue,
+              reason: events[index].type);
+          expect(json[fields[index]], isNull, reason: events[index].type);
+        }
+      });
+
       test('includes timestamp when provided', () {
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final event = TextMessageEndEvent(

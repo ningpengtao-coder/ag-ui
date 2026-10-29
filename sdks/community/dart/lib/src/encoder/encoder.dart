@@ -48,10 +48,13 @@ class EventEncoder {
   ///
   /// ```
   String encodeSSE(BaseEvent event) {
-    final json = event.toJson();
-    // Remove null values for cleaner output
-    json.removeWhere((key, value) => value == null);
-    final jsonString = jsonEncode(json);
+    // Every model's `toJson` already leaves out the optional fields it does not
+    // carry, so what is left has to be written as-is. Stripping every top-level
+    // `null` would also delete a required field that legitimately holds one —
+    // `snapshot`, `CustomEvent.value` and `RawEvent.event` are all any-typed and
+    // may be `null` — and a receiver validating the 1.0 schema would then reject
+    // the event for a missing required property.
+    final jsonString = jsonEncode(event.toJson());
     return 'data: $jsonString\n\n';
   }
 

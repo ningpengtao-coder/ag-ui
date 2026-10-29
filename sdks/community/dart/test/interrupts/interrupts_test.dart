@@ -30,6 +30,24 @@ void main() {
     });
   });
 
+  group('RunFinishedInterruptOutcome.fromJson', () {
+    test('rejects an empty interrupts list', () {
+      expect(
+        () => RunFinishedInterruptOutcome.fromJson(const {'interrupts': []}),
+        throwsA(isA<AGUIValidationError>()),
+      );
+    });
+
+    test('accepts one interrupt', () {
+      final outcome = RunFinishedInterruptOutcome.fromJson(const {
+        'interrupts': [
+          {'id': 'int-1', 'reason': 'tool_call'},
+        ],
+      });
+      expect(outcome.interrupts.single.id, 'int-1');
+    });
+  });
+
   group('isInterruptExpired', () {
     test('returns false when expiresAt is unset', () {
       const interrupt = Interrupt(id: 'int-1', reason: 'tool_call');
@@ -51,6 +69,27 @@ void main() {
         isTrue,
       );
     });
+
+    test('expires at the deadline itself, not a moment later', () {
+      const interrupt = Interrupt(
+        id: 'int-1',
+        reason: 'tool_call',
+        expiresAt: '2026-04-22T12:00:00Z',
+      );
+      expect(
+        isInterruptExpired(interrupt, DateTime.parse('2026-04-22T12:00:00Z')),
+        isTrue,
+      );
+    });
+
+    test('an unparseable deadline leaves the interrupt answerable', () {
+      const interrupt = Interrupt(
+        id: 'int-1',
+        reason: 'tool_call',
+        expiresAt: 'not-a-date',
+      );
+      expect(isInterruptExpired(interrupt), isFalse);
+    });
   });
 
   group('buildResumeArray', () {
@@ -71,6 +110,20 @@ void main() {
       expect(resume[0].payload, {'approved': true});
       expect(resume[1].status, ResumeStatus.cancelled);
       expect(resume[1].payload, isNull);
+    });
+
+    test('carries the response metadata onto the entry', () {
+      final resume = buildResumeArray(interrupts, {
+        'int-1': const ResumeResponse.resolved(
+          {'approved': true},
+          {'source': 'ui'},
+        ),
+        'int-2': const ResumeResponse.cancelled({'reason': 'timeout'}),
+      });
+
+      expect(resume[0].metadata, {'source': 'ui'});
+      expect(resume[1].metadata, {'reason': 'timeout'});
+      expect(resume[1].toJson()['metadata'], {'reason': 'timeout'});
     });
 
     test('throws when a response is missing', () {

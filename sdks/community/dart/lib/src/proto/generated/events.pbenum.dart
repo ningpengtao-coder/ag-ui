@@ -14,6 +14,7 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
+/// The discriminator carried by every event.
 class EventType extends $pb.ProtobufEnum {
   static const EventType TEXT_MESSAGE_START =
       EventType._(0, _omitEnumNames ? '' : 'TEXT_MESSAGE_START');
@@ -46,6 +47,36 @@ class EventType extends $pb.ProtobufEnum {
       EventType._(14, _omitEnumNames ? '' : 'STEP_STARTED');
   static const EventType STEP_FINISHED =
       EventType._(15, _omitEnumNames ? '' : 'STEP_FINISHED');
+  static const EventType SUBAGENT_STARTED =
+      EventType._(16, _omitEnumNames ? '' : 'SUBAGENT_STARTED');
+  static const EventType SUBAGENT_FINISHED =
+      EventType._(17, _omitEnumNames ? '' : 'SUBAGENT_FINISHED');
+  static const EventType SUBAGENT_ERROR =
+      EventType._(18, _omitEnumNames ? '' : 'SUBAGENT_ERROR');
+  static const EventType TEXT_MESSAGE_CHUNK =
+      EventType._(19, _omitEnumNames ? '' : 'TEXT_MESSAGE_CHUNK');
+  static const EventType TOOL_CALL_CHUNK =
+      EventType._(20, _omitEnumNames ? '' : 'TOOL_CALL_CHUNK');
+  static const EventType TOOL_CALL_RESULT =
+      EventType._(21, _omitEnumNames ? '' : 'TOOL_CALL_RESULT');
+  static const EventType ACTIVITY_SNAPSHOT =
+      EventType._(22, _omitEnumNames ? '' : 'ACTIVITY_SNAPSHOT');
+  static const EventType ACTIVITY_DELTA =
+      EventType._(23, _omitEnumNames ? '' : 'ACTIVITY_DELTA');
+  static const EventType REASONING_START =
+      EventType._(24, _omitEnumNames ? '' : 'REASONING_START');
+  static const EventType REASONING_MESSAGE_START =
+      EventType._(25, _omitEnumNames ? '' : 'REASONING_MESSAGE_START');
+  static const EventType REASONING_MESSAGE_CONTENT =
+      EventType._(26, _omitEnumNames ? '' : 'REASONING_MESSAGE_CONTENT');
+  static const EventType REASONING_MESSAGE_END =
+      EventType._(27, _omitEnumNames ? '' : 'REASONING_MESSAGE_END');
+  static const EventType REASONING_MESSAGE_CHUNK =
+      EventType._(28, _omitEnumNames ? '' : 'REASONING_MESSAGE_CHUNK');
+  static const EventType REASONING_END =
+      EventType._(29, _omitEnumNames ? '' : 'REASONING_END');
+  static const EventType REASONING_ENCRYPTED_VALUE =
+      EventType._(30, _omitEnumNames ? '' : 'REASONING_ENCRYPTED_VALUE');
 
   static const $core.List<EventType> values = <EventType>[
     TEXT_MESSAGE_START,
@@ -64,10 +95,25 @@ class EventType extends $pb.ProtobufEnum {
     RUN_ERROR,
     STEP_STARTED,
     STEP_FINISHED,
+    SUBAGENT_STARTED,
+    SUBAGENT_FINISHED,
+    SUBAGENT_ERROR,
+    TEXT_MESSAGE_CHUNK,
+    TOOL_CALL_CHUNK,
+    TOOL_CALL_RESULT,
+    ACTIVITY_SNAPSHOT,
+    ACTIVITY_DELTA,
+    REASONING_START,
+    REASONING_MESSAGE_START,
+    REASONING_MESSAGE_CONTENT,
+    REASONING_MESSAGE_END,
+    REASONING_MESSAGE_CHUNK,
+    REASONING_END,
+    REASONING_ENCRYPTED_VALUE,
   ];
 
   static final $core.List<EventType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 15);
+      $pb.ProtobufEnum.$_initByValueList(values, 30);
   static EventType? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

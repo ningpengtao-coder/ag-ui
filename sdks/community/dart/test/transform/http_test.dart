@@ -75,5 +75,53 @@ void main() {
       expect(parsed, isA<RunFinishedEvent>());
       expect((parsed as RunFinishedEvent).runId, 'r1');
     });
+
+    test('parseProtoStream reports a stream that ends mid-frame', () async {
+      final frame = encodeProtoFrame(
+        const TextMessageEndEvent(messageId: 'm3'),
+      );
+
+      final events = parseProtoStream(
+        Stream<HttpEvent>.fromIterable([
+          HttpDataEvent(
+            data: Uint8List.fromList(frame.sublist(0, frame.length - 2)),
+          ),
+        ]),
+      );
+
+      // Completing anyway would report success for a stream that was cut in
+      // half and lossily dropped the message it was carrying.
+      await expectLater(events, emitsError(isA<StateError>()));
+    });
+
+    test('parseProtoStream rejects a frame larger than the limit', () async {
+      final header = Uint8List(4);
+      ByteData.sublistView(header, 0, 4)
+          .setUint32(0, maxProtoFrameSize, Endian.big);
+
+      final events = parseProtoStream(
+        Stream<HttpEvent>.fromIterable([
+          HttpDataEvent(data: header),
+        ]),
+      );
+
+      // The declared length alone is enough: waiting for those bytes would grow
+      // the buffer without bound.
+      await expectLater(events, emitsError(isA<StateError>()));
+    });
+
+    test('parseProtoStream reports a frame that cannot be decoded', () async {
+      final events = parseProtoStream(
+        Stream<HttpEvent>.fromIterable([
+          HttpDataEvent(
+            data: Uint8List.fromList([0, 0, 0, 3, 1, 2, 3]),
+          ),
+        ]),
+      );
+
+      // A decode failure is an error on the stream, not a silent stop that
+      // leaves the consumer awaiting an event that will never arrive.
+      await expectLater(events, emitsError(isA<StateError>()));
+    });
   });
 }

@@ -14,6 +14,7 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
+/// The op discriminator of JsonPatchOperation.
 class JsonPatchOperationType extends $pb.ProtobufEnum {
   static const JsonPatchOperationType ADD =
       JsonPatchOperationType._(0, _omitEnumNames ? '' : 'ADD');

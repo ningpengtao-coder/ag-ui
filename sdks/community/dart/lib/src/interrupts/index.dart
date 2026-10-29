@@ -10,16 +10,24 @@ bool isInterruptExpired(Interrupt interrupt, [DateTime? now]) {
   if (expiresAt == null) {
     return false;
   }
-  return DateTime.parse(expiresAt).isBefore(now ?? DateTime.now()) ||
-      DateTime.parse(expiresAt).isAtSameMomentAs(now ?? DateTime.now());
+  // An unparseable deadline is not a deadline: the producer said something this
+  // client cannot read, and reading it as "already expired" would lock the
+  // thread instead of leaving the interrupt answerable.
+  final parsed = DateTime.tryParse(expiresAt);
+  if (parsed == null) {
+    return false;
+  }
+  return !parsed.isAfter(now ?? DateTime.now());
 }
 
 class ResumeResponse {
   final ResumeStatus status;
   final Object? payload;
+  final Map<String, dynamic>? metadata;
 
-  const ResumeResponse.resolved([this.payload]) : status = ResumeStatus.resolved;
-  const ResumeResponse.cancelled()
+  const ResumeResponse.resolved([this.payload, this.metadata])
+      : status = ResumeStatus.resolved;
+  const ResumeResponse.cancelled([this.metadata])
       : status = ResumeStatus.cancelled,
         payload = null;
 }
@@ -51,6 +59,7 @@ List<ResumeEntry> buildResumeArray(
       interruptId: interrupt.id,
       status: response.status,
       payload: response.payload,
+      metadata: response.metadata,
     );
   }).toList();
 }

@@ -24,9 +24,9 @@ class Context extends AGUIModel {
 
   @override
   Map<String, dynamic> toJson() => {
-    'description': description,
-    'value': value,
-  };
+        'description': description,
+        'value': value,
+      };
 
   @override
   Context copyWith({
@@ -49,6 +49,10 @@ class Interrupt extends AGUIModel {
   final String? expiresAt;
   final Map<String, dynamic>? metadata;
 
+  /// The subagent a multi-agent producer attributes this interrupt to
+  /// (1.0 `Attributable.subagentRunId`).
+  final String? subagentRunId;
+
   const Interrupt({
     required this.id,
     required this.reason,
@@ -57,6 +61,7 @@ class Interrupt extends AGUIModel {
     this.responseSchema,
     this.expiresAt,
     this.metadata,
+    this.subagentRunId,
   });
 
   factory Interrupt.fromJson(Map<String, dynamic> json) {
@@ -69,6 +74,7 @@ class Interrupt extends AGUIModel {
       responseSchema: JsonDecoder.optionalField<Map<String, dynamic>>(json, 'responseSchema'),
       expiresAt: JsonDecoder.optionalField<String>(json, 'expiresAt'),
       metadata: JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
+      subagentRunId: JsonDecoder.optionalField<String>(json, 'subagentRunId'),
     );
   }
 
@@ -81,6 +87,7 @@ class Interrupt extends AGUIModel {
     if (responseSchema != null) 'responseSchema': responseSchema,
     if (expiresAt != null) 'expiresAt': expiresAt,
     if (metadata != null) 'metadata': metadata,
+    if (subagentRunId != null) 'subagentRunId': subagentRunId,
   };
 
   @override
@@ -92,6 +99,7 @@ class Interrupt extends AGUIModel {
     Map<String, dynamic>? responseSchema,
     String? expiresAt,
     Map<String, dynamic>? metadata,
+    String? subagentRunId,
   }) {
     return Interrupt(
       id: id ?? this.id,
@@ -101,6 +109,7 @@ class Interrupt extends AGUIModel {
       responseSchema: responseSchema ?? this.responseSchema,
       expiresAt: expiresAt ?? this.expiresAt,
       metadata: metadata ?? this.metadata,
+      subagentRunId: subagentRunId ?? this.subagentRunId,
     );
   }
 }
@@ -128,38 +137,46 @@ class ResumeEntry extends AGUIModel {
   final String interruptId;
   final ResumeStatus status;
   final Object? payload;
+  final Map<String, dynamic>? metadata;
 
   const ResumeEntry({
     required this.interruptId,
     required this.status,
     this.payload,
+    this.metadata,
   });
 
   factory ResumeEntry.fromJson(Map<String, dynamic> json) {
     return ResumeEntry(
       interruptId: JsonDecoder.requireField<String>(json, 'interruptId'),
-      status: ResumeStatus.fromString(JsonDecoder.requireField<String>(json, 'status')),
+      status: ResumeStatus.fromString(
+          JsonDecoder.requireField<String>(json, 'status')),
       payload: json['payload'],
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-    'interruptId': interruptId,
-    'status': status.value,
-    if (payload != null) 'payload': payload,
-  };
+        'interruptId': interruptId,
+        'status': status.value,
+        if (payload != null) 'payload': payload,
+        if (metadata != null) 'metadata': metadata,
+      };
 
   @override
   ResumeEntry copyWith({
     String? interruptId,
     ResumeStatus? status,
     Object? payload,
+    Map<String, dynamic>? metadata,
   }) {
     return ResumeEntry(
       interruptId: interruptId ?? this.interruptId,
       status: status ?? this.status,
       payload: payload ?? this.payload,
+      metadata: metadata ?? this.metadata,
     );
   }
 }
@@ -168,6 +185,9 @@ class RunAgentInput extends AGUIModel {
   final String threadId;
   final String runId;
   final String? parentRunId;
+
+  /// The protocol version the client speaks. Pinned peers omit it.
+  final String? protocolVersion;
   final Object? state;
   final List<Message> messages;
   final List<Tool> tools;
@@ -179,10 +199,11 @@ class RunAgentInput extends AGUIModel {
     required this.threadId,
     required this.runId,
     this.parentRunId,
+    this.protocolVersion,
     this.state,
     required this.messages,
-    required this.tools,
-    required this.context,
+    this.tools = const [],
+    this.context = const [],
     this.forwardedProps,
     this.resume,
   });
@@ -207,50 +228,58 @@ class RunAgentInput extends AGUIModel {
         json: json,
       );
     }
-    
+
     return RunAgentInput(
       threadId: threadId,
       runId: runId,
       parentRunId: JsonDecoder.optionalField<String>(json, 'parentRunId') ??
           JsonDecoder.optionalField<String>(json, 'parent_run_id'),
+      protocolVersion:
+          JsonDecoder.optionalField<String>(json, 'protocolVersion'),
       state: json['state'],
       messages: JsonDecoder.requireListField<Map<String, dynamic>>(
         json,
         'messages',
       ).map((item) => Message.fromJson(item)).toList(),
-      tools: JsonDecoder.requireListField<Map<String, dynamic>>(
-        json,
-        'tools',
-      ).map((item) => Tool.fromJson(item)).toList(),
-      context: JsonDecoder.requireListField<Map<String, dynamic>>(
-        json,
-        'context',
-      ).map((item) => Context.fromJson(item)).toList(),
-      forwardedProps: json['forwardedProps'] ?? json['forwarded_props'],
-      resume: JsonDecoder.optionalListField<Map<String, dynamic>>(json, 'resume')
-          ?.map((item) => ResumeEntry.fromJson(item))
+      tools:
+          (JsonDecoder.optionalListField<Map<String, dynamic>>(json, 'tools') ??
+                  const [])
+              .map((item) => Tool.fromJson(item))
+              .toList(),
+      context: (JsonDecoder.optionalListField<Map<String, dynamic>>(
+                  json, 'context') ??
+              const [])
+          .map((item) => Context.fromJson(item))
           .toList(),
+      forwardedProps: json['forwardedProps'] ?? json['forwarded_props'],
+      resume:
+          JsonDecoder.optionalListField<Map<String, dynamic>>(json, 'resume')
+              ?.map((item) => ResumeEntry.fromJson(item))
+              .toList(),
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-    'threadId': threadId,
-    'runId': runId,
-    if (parentRunId != null) 'parentRunId': parentRunId,
-    if (state != null) 'state': state,
-    'messages': messages.map((m) => m.toJson()).toList(),
-    'tools': tools.map((t) => t.toJson()).toList(),
-    'context': context.map((c) => c.toJson()).toList(),
-    if (forwardedProps != null) 'forwardedProps': forwardedProps,
-    if (resume != null) 'resume': resume!.map((item) => item.toJson()).toList(),
-  };
+        'threadId': threadId,
+        'runId': runId,
+        if (parentRunId != null) 'parentRunId': parentRunId,
+        if (protocolVersion != null) 'protocolVersion': protocolVersion,
+        if (state != null) 'state': state,
+        'messages': messages.map((m) => m.toJson()).toList(),
+        'tools': tools.map((t) => t.toJson()).toList(),
+        'context': context.map((c) => c.toJson()).toList(),
+        if (forwardedProps != null) 'forwardedProps': forwardedProps,
+        if (resume != null)
+          'resume': resume!.map((item) => item.toJson()).toList(),
+      };
 
   @override
   RunAgentInput copyWith({
     String? threadId,
     String? runId,
     String? parentRunId,
+    String? protocolVersion,
     Object? state,
     List<Message>? messages,
     List<Tool>? tools,
@@ -262,6 +291,7 @@ class RunAgentInput extends AGUIModel {
       threadId: threadId ?? this.threadId,
       runId: runId ?? this.runId,
       parentRunId: parentRunId ?? this.parentRunId,
+      protocolVersion: protocolVersion ?? this.protocolVersion,
       state: state ?? this.state,
       messages: messages ?? this.messages,
       tools: tools ?? this.tools,
@@ -290,7 +320,7 @@ class Run extends AGUIModel {
         JsonDecoder.optionalField<String>(json, 'thread_id');
     final runId = JsonDecoder.optionalField<String>(json, 'runId') ??
         JsonDecoder.optionalField<String>(json, 'run_id');
-    
+
     if (threadId == null) {
       throw AGUIValidationError(
         message: 'Missing required field: threadId or thread_id',
@@ -305,7 +335,7 @@ class Run extends AGUIModel {
         json: json,
       );
     }
-    
+
     return Run(
       threadId: threadId,
       runId: runId,
@@ -315,10 +345,10 @@ class Run extends AGUIModel {
 
   @override
   Map<String, dynamic> toJson() => {
-    'threadId': threadId,
-    'runId': runId,
-    if (result != null) 'result': result,
-  };
+        'threadId': threadId,
+        'runId': runId,
+        if (result != null) 'result': result,
+      };
 
   @override
   Run copyWith({

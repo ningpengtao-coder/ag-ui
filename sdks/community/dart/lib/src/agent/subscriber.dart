@@ -63,6 +63,12 @@ class AgentEventContext<T extends BaseEvent> extends AgentSubscriberContext {
   final List<Interrupt>? interrupts;
   final String? outcome;
 
+  /// Tool calls the run left for the application to answer, in order. Only
+  /// meaningful when [outcome] is `success`: the producer's
+  /// `outcome.pendingToolCallIds` when it named them, otherwise every tool call
+  /// this run started that received no `TOOL_CALL_RESULT`.
+  final List<String>? pendingToolCallIds;
+
   const AgentEventContext({
     required super.messages,
     required super.state,
@@ -80,6 +86,7 @@ class AgentEventContext<T extends BaseEvent> extends AgentSubscriberContext {
     this.result,
     this.interrupts,
     this.outcome,
+    this.pendingToolCallIds,
   });
 }
 
@@ -120,6 +127,9 @@ class AgentSubscriber {
   final AgentMutationCallback<AgentEventContext<RunErrorEvent>>? onRunErrorEvent;
   final AgentMutationCallback<AgentEventContext<StepStartedEvent>>? onStepStartedEvent;
   final AgentMutationCallback<AgentEventContext<StepFinishedEvent>>? onStepFinishedEvent;
+  final AgentMutationCallback<AgentEventContext<SubagentStartedEvent>>? onSubagentStartedEvent;
+  final AgentMutationCallback<AgentEventContext<SubagentFinishedEvent>>? onSubagentFinishedEvent;
+  final AgentMutationCallback<AgentEventContext<SubagentErrorEvent>>? onSubagentErrorEvent;
   final AgentMutationCallback<AgentEventContext<TextMessageStartEvent>>? onTextMessageStartEvent;
   final AgentMutationCallback<AgentEventContext<TextMessageContentEvent>>? onTextMessageContentEvent;
   final AgentMutationCallback<AgentEventContext<TextMessageEndEvent>>? onTextMessageEndEvent;
@@ -155,6 +165,9 @@ class AgentSubscriber {
     this.onRunErrorEvent,
     this.onStepStartedEvent,
     this.onStepFinishedEvent,
+    this.onSubagentStartedEvent,
+    this.onSubagentFinishedEvent,
+    this.onSubagentErrorEvent,
     this.onTextMessageStartEvent,
     this.onTextMessageContentEvent,
     this.onTextMessageEndEvent,

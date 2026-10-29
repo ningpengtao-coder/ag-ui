@@ -21,9 +21,9 @@ class FunctionCall extends AGUIModel {
 
   @override
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'arguments': arguments,
-  };
+        'name': name,
+        'arguments': arguments,
+      };
 
   @override
   FunctionCall copyWith({
@@ -42,12 +42,14 @@ class ToolCall extends AGUIModel {
   final String type;
   final FunctionCall function;
   final String? encryptedValue;
+  final Map<String, dynamic>? metadata;
 
   const ToolCall({
     required this.id,
     this.type = 'function',
     required this.function,
     this.encryptedValue,
+    this.metadata,
   });
 
   factory ToolCall.fromJson(Map<String, dynamic> json) {
@@ -58,16 +60,19 @@ class ToolCall extends AGUIModel {
         JsonDecoder.requireField<Map<String, dynamic>>(json, 'function'),
       ),
       encryptedValue: JsonDecoder.optionalField<String>(json, 'encryptedValue'),
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'type': type,
-    'function': function.toJson(),
-    if (encryptedValue != null) 'encryptedValue': encryptedValue,
-  };
+        'id': id,
+        'type': type,
+        'function': function.toJson(),
+        if (encryptedValue != null) 'encryptedValue': encryptedValue,
+        if (metadata != null) 'metadata': metadata,
+      };
 
   @override
   ToolCall copyWith({
@@ -75,12 +80,14 @@ class ToolCall extends AGUIModel {
     String? type,
     FunctionCall? function,
     String? encryptedValue,
+    Map<String, dynamic>? metadata,
   }) {
     return ToolCall(
       id: id ?? this.id,
       type: type ?? this.type,
       function: function ?? this.function,
       encryptedValue: encryptedValue ?? this.encryptedValue,
+      metadata: metadata ?? this.metadata,
     );
   }
 }
@@ -103,17 +110,18 @@ class Tool extends AGUIModel {
       name: JsonDecoder.requireField<String>(json, 'name'),
       description: JsonDecoder.requireField<String>(json, 'description'),
       parameters: json['parameters'],
-      metadata: JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'description': description,
-    if (parameters != null) 'parameters': parameters,
-    if (metadata != null) 'metadata': metadata,
-  };
+        'name': name,
+        'description': description,
+        if (parameters != null) 'parameters': parameters,
+        if (metadata != null) 'metadata': metadata,
+      };
 
   @override
   Tool copyWith({
@@ -148,7 +156,7 @@ class ToolResult extends AGUIModel {
   factory ToolResult.fromJson(Map<String, dynamic> json) {
     final toolCallId = JsonDecoder.optionalField<String>(json, 'toolCallId') ??
         JsonDecoder.optionalField<String>(json, 'tool_call_id');
-    
+
     if (toolCallId == null) {
       throw AGUIValidationError(
         message: 'Missing required field: toolCallId or tool_call_id',
@@ -156,22 +164,23 @@ class ToolResult extends AGUIModel {
         json: json,
       );
     }
-    
+
     return ToolResult(
       toolCallId: toolCallId,
       content: JsonDecoder.requireField<String>(json, 'content'),
       error: JsonDecoder.optionalField<String>(json, 'error'),
-      metadata: JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-    'toolCallId': toolCallId,
-    'content': content,
-    if (error != null) 'error': error,
-    if (metadata != null) 'metadata': metadata,
-  };
+        'toolCallId': toolCallId,
+        'content': content,
+        if (error != null) 'error': error,
+        if (metadata != null) 'metadata': metadata,
+      };
 
   @override
   ToolResult copyWith({

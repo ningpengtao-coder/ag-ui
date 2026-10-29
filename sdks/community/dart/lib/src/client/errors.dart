@@ -1,5 +1,11 @@
+import '../types/base.dart';
+
 /// Base class for all AG-UI errors
-abstract class AgUiError implements Exception {
+///
+/// Implements [AGUIError] so a single `on AGUIError catch` covers both the
+/// protocol-layer errors raised while decoding events and the transport-layer
+/// errors raised here, instead of forcing every caller to name both families.
+abstract class AgUiError implements Exception, AGUIError {
   /// Human-readable error message
   final String message;
 

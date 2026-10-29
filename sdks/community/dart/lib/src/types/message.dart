@@ -38,6 +38,8 @@ sealed class InputContentSource extends AGUIModel with TypeDiscriminator {
         return InputContentDataSource.fromJson(json);
       case 'url':
         return InputContentUrlSource.fromJson(json);
+      case 'file':
+        return InputContentFileSource.fromJson(json);
       default:
         throw AGUIValidationError(
           message: 'Invalid input content source type: $type',
@@ -46,6 +48,51 @@ sealed class InputContentSource extends AGUIModel with TypeDiscriminator {
           json: json,
         );
     }
+  }
+}
+
+/// A part source that points at a provider-hosted file (1.0 `FileSource`).
+final class InputContentFileSource extends InputContentSource {
+  final String value;
+  final String? provider;
+  final String? mimeType;
+
+  const InputContentFileSource({
+    required this.value,
+    this.provider,
+    this.mimeType,
+  });
+
+  factory InputContentFileSource.fromJson(Map<String, dynamic> json) {
+    return InputContentFileSource(
+      value: JsonDecoder.requireField<String>(json, 'value'),
+      provider: JsonDecoder.optionalField<String>(json, 'provider'),
+      mimeType: JsonDecoder.optionalField<String>(json, 'mimeType'),
+    );
+  }
+
+  @override
+  String get type => 'file';
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'value': value,
+        if (provider != null) 'provider': provider,
+        if (mimeType != null) 'mimeType': mimeType,
+      };
+
+  @override
+  InputContentFileSource copyWith({
+    String? value,
+    String? provider,
+    String? mimeType,
+  }) {
+    return InputContentFileSource(
+      value: value ?? this.value,
+      provider: provider ?? this.provider,
+      mimeType: mimeType ?? this.mimeType,
+    );
   }
 }
 
@@ -70,10 +117,10 @@ final class InputContentDataSource extends InputContentSource {
 
   @override
   Map<String, dynamic> toJson() => {
-    'type': type,
-    'value': value,
-    'mimeType': mimeType,
-  };
+        'type': type,
+        'value': value,
+        'mimeType': mimeType,
+      };
 
   @override
   InputContentDataSource copyWith({
@@ -108,10 +155,10 @@ final class InputContentUrlSource extends InputContentSource {
 
   @override
   Map<String, dynamic> toJson() => {
-    'type': type,
-    'value': value,
-    if (mimeType != null) 'mimeType': mimeType,
-  };
+        'type': type,
+        'value': value,
+        if (mimeType != null) 'mimeType': mimeType,
+      };
 
   @override
   InputContentUrlSource copyWith({
@@ -142,28 +189,51 @@ sealed class InputContent extends AGUIModel with TypeDiscriminator {
       case 'document':
         return DocumentInputContent.fromJson(json);
       case 'binary':
+        // Pre-1.0 spellings still arrive from unpinned peers; the era shims
+        // translate them into `data`/`url` sources before enforcement.
         return BinaryInputContent.fromJson(json);
       default:
-        throw AGUIValidationError(
-          message: 'Invalid input content type: $type',
-          field: 'type',
-          value: type,
-          json: json,
-        );
+        // Unknown union members are stripped, with a warning, at enforcement.
+        return UnknownInputContent(raw: json);
     }
+  }
+}
+
+/// A content part the 1.0 protocol does not describe.
+final class UnknownInputContent extends InputContent {
+  final Map<String, dynamic> raw;
+
+  UnknownInputContent({required Map<String, dynamic> raw})
+      : raw = Map<String, dynamic>.unmodifiable(raw);
+
+  @override
+  String get type => (raw['type'] as String?) ?? 'unknown';
+
+  @override
+  Map<String, dynamic> toJson() => Map<String, dynamic>.from(raw);
+
+  @override
+  UnknownInputContent copyWith({Map<String, dynamic>? raw}) {
+    return UnknownInputContent(raw: raw ?? this.raw);
   }
 }
 
 final class TextInputContent extends InputContent {
   final String text;
+  final String? id;
+  final Object? metadata;
 
   const TextInputContent({
     required this.text,
+    this.id,
+    this.metadata,
   });
 
   factory TextInputContent.fromJson(Map<String, dynamic> json) {
     return TextInputContent(
       text: JsonDecoder.requireField<String>(json, 'text'),
+      id: JsonDecoder.optionalField<String>(json, 'id'),
+      metadata: json['metadata'],
     );
   }
 
@@ -172,40 +242,50 @@ final class TextInputContent extends InputContent {
 
   @override
   Map<String, dynamic> toJson() => {
-    'type': type,
-    'text': text,
-  };
+        'type': type,
+        'text': text,
+        if (id != null) 'id': id,
+        if (metadata != null) 'metadata': metadata,
+      };
 
   @override
   TextInputContent copyWith({
     String? text,
+    String? id,
+    Object? metadata,
   }) {
     return TextInputContent(
       text: text ?? this.text,
+      id: id ?? this.id,
+      metadata: metadata ?? this.metadata,
     );
   }
 }
 
 abstract class _SourceBackedInputContent extends InputContent {
   final InputContentSource source;
+  final String? id;
   final Object? metadata;
 
   const _SourceBackedInputContent({
     required this.source,
+    this.id,
     this.metadata,
   });
 
   @override
   Map<String, dynamic> toJson() => {
-    'type': type,
-    'source': source.toJson(),
-    if (metadata != null) 'metadata': metadata,
-  };
+        'type': type,
+        'source': source.toJson(),
+        if (id != null) 'id': id,
+        if (metadata != null) 'metadata': metadata,
+      };
 }
 
 final class ImageInputContent extends _SourceBackedInputContent {
   const ImageInputContent({
     required super.source,
+    super.id,
     super.metadata,
   });
 
@@ -214,6 +294,7 @@ final class ImageInputContent extends _SourceBackedInputContent {
       source: InputContentSource.fromJson(
         JsonDecoder.requireField<Map<String, dynamic>>(json, 'source'),
       ),
+      id: JsonDecoder.optionalField<String>(json, 'id'),
       metadata: json['metadata'],
     );
   }
@@ -224,10 +305,12 @@ final class ImageInputContent extends _SourceBackedInputContent {
   @override
   ImageInputContent copyWith({
     InputContentSource? source,
+    String? id,
     Object? metadata,
   }) {
     return ImageInputContent(
       source: source ?? this.source,
+      id: id ?? this.id,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -236,6 +319,7 @@ final class ImageInputContent extends _SourceBackedInputContent {
 final class AudioInputContent extends _SourceBackedInputContent {
   const AudioInputContent({
     required super.source,
+    super.id,
     super.metadata,
   });
 
@@ -244,6 +328,7 @@ final class AudioInputContent extends _SourceBackedInputContent {
       source: InputContentSource.fromJson(
         JsonDecoder.requireField<Map<String, dynamic>>(json, 'source'),
       ),
+      id: JsonDecoder.optionalField<String>(json, 'id'),
       metadata: json['metadata'],
     );
   }
@@ -254,10 +339,12 @@ final class AudioInputContent extends _SourceBackedInputContent {
   @override
   AudioInputContent copyWith({
     InputContentSource? source,
+    String? id,
     Object? metadata,
   }) {
     return AudioInputContent(
       source: source ?? this.source,
+      id: id ?? this.id,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -266,6 +353,7 @@ final class AudioInputContent extends _SourceBackedInputContent {
 final class VideoInputContent extends _SourceBackedInputContent {
   const VideoInputContent({
     required super.source,
+    super.id,
     super.metadata,
   });
 
@@ -274,6 +362,7 @@ final class VideoInputContent extends _SourceBackedInputContent {
       source: InputContentSource.fromJson(
         JsonDecoder.requireField<Map<String, dynamic>>(json, 'source'),
       ),
+      id: JsonDecoder.optionalField<String>(json, 'id'),
       metadata: json['metadata'],
     );
   }
@@ -284,10 +373,12 @@ final class VideoInputContent extends _SourceBackedInputContent {
   @override
   VideoInputContent copyWith({
     InputContentSource? source,
+    String? id,
     Object? metadata,
   }) {
     return VideoInputContent(
       source: source ?? this.source,
+      id: id ?? this.id,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -296,6 +387,7 @@ final class VideoInputContent extends _SourceBackedInputContent {
 final class DocumentInputContent extends _SourceBackedInputContent {
   const DocumentInputContent({
     required super.source,
+    super.id,
     super.metadata,
   });
 
@@ -304,6 +396,7 @@ final class DocumentInputContent extends _SourceBackedInputContent {
       source: InputContentSource.fromJson(
         JsonDecoder.requireField<Map<String, dynamic>>(json, 'source'),
       ),
+      id: JsonDecoder.optionalField<String>(json, 'id'),
       metadata: json['metadata'],
     );
   }
@@ -314,10 +407,12 @@ final class DocumentInputContent extends _SourceBackedInputContent {
   @override
   DocumentInputContent copyWith({
     InputContentSource? source,
+    String? id,
     Object? metadata,
   }) {
     return DocumentInputContent(
       source: source ?? this.source,
+      id: id ?? this.id,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -349,7 +444,8 @@ final class BinaryInputContent extends InputContent {
 
     if (binary.id == null && binary.url == null && binary.data == null) {
       throw AGUIValidationError(
-        message: 'BinaryInputContent requires at least one of id, url, or data.',
+        message:
+            'BinaryInputContent requires at least one of id, url, or data.',
         field: 'id',
         json: json,
       );
@@ -363,13 +459,13 @@ final class BinaryInputContent extends InputContent {
 
   @override
   Map<String, dynamic> toJson() => {
-    'type': type,
-    'mimeType': mimeType,
-    if (id != null) 'id': id,
-    if (url != null) 'url': url,
-    if (data != null) 'data': data,
-    if (filename != null) 'filename': filename,
-  };
+        'type': type,
+        'mimeType': mimeType,
+        if (id != null) 'id': id,
+        if (url != null) 'url': url,
+        if (data != null) 'data': data,
+        if (filename != null) 'filename': filename,
+      };
 
   @override
   BinaryInputContent copyWith({
@@ -397,6 +493,36 @@ typedef InputContentPart = InputContent;
 typedef UserTextContent = String;
 typedef UserMultimodalContent = List<InputContent>;
 
+/// The 1.0 name for a multimodal content part.
+typedef ContentPart = InputContent;
+
+/// The 1.0 name for a content part's source.
+typedef PartSource = InputContentSource;
+
+/// Reads a `content` slot that the schema types as `string | ContentPart[]`.
+///
+/// Shared by [UserMessage] and [ToolMessage]: both accept the same union, and
+/// a tool result that carries parts has to be minted the same way a user
+/// message carrying parts is.
+Object parseContentValue(Map<String, dynamic> json, String field) {
+  final content = json[field];
+  if (content is String) return content;
+  if (content is List) {
+    return content
+        .map(
+          (item) =>
+              InputContent.fromJson(Map<String, dynamic>.from(item as Map)),
+        )
+        .toList();
+  }
+  throw AGUIValidationError(
+    message: '$field must be a string or a list of content parts.',
+    field: field,
+    value: content,
+    json: json,
+  );
+}
+
 sealed class UserMessageContent {
   const UserMessageContent();
 
@@ -408,7 +534,8 @@ sealed class UserMessageContent {
       return UserTextMessageContent(content);
     }
     if (content is List<InputContent>) {
-      return UserMultimodalMessageContent(List<InputContent>.unmodifiable(content));
+      return UserMultimodalMessageContent(
+          List<InputContent>.unmodifiable(content));
     }
     if (content is List) {
       return UserMultimodalMessageContent(
@@ -416,7 +543,8 @@ sealed class UserMessageContent {
       );
     }
     throw AGUIValidationError(
-      message: 'User message content must be a string or a list of content parts.',
+      message:
+          'User message content must be a string or a list of content parts.',
       field: 'content',
       value: content,
     );
@@ -466,19 +594,28 @@ sealed class Message extends AGUIModel with TypeDiscriminator {
   final String? name;
   final String? encryptedValue;
 
+  /// Free-form metadata carried alongside the message (1.0 `BaseMessage`).
+  final Map<String, dynamic>? metadata;
+
+  /// The subagent a multi-agent producer attributes the message to.
+  final String? subagentRunId;
+
   const Message({
     required this.id,
     required this.role,
     this.content,
     this.name,
     this.encryptedValue,
+    this.metadata,
+    this.subagentRunId,
   });
 
   @override
   String get type => role.value;
 
   factory Message.fromJson(Map<String, dynamic> json) {
-    final role = MessageRole.fromString(JsonDecoder.requireField<String>(json, 'role'));
+    final role =
+        MessageRole.fromString(JsonDecoder.requireField<String>(json, 'role'));
     switch (role) {
       case MessageRole.developer:
         return DeveloperMessage.fromJson(json);
@@ -499,12 +636,14 @@ sealed class Message extends AGUIModel with TypeDiscriminator {
 
   @override
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'role': role.value,
-    if (content != null) 'content': _serializeMessageContent(content),
-    if (name != null) 'name': name,
-    if (encryptedValue != null) 'encryptedValue': encryptedValue,
-  };
+        'id': id,
+        'role': role.value,
+        if (content != null) 'content': _serializeMessageContent(content),
+        if (name != null) 'name': name,
+        if (encryptedValue != null) 'encryptedValue': encryptedValue,
+        if (metadata != null) 'metadata': metadata,
+        if (subagentRunId != null) 'subagentRunId': subagentRunId,
+      };
 }
 
 Object? _serializeMessageContent(Object? content) {
@@ -526,13 +665,15 @@ UserMessageContent _parseUserContent(Map<String, dynamic> json) {
     return UserMultimodalMessageContent(
       List<InputContent>.unmodifiable(
         content
-            .map((item) => InputContent.fromJson(Map<String, dynamic>.from(item as Map)))
+            .map((item) =>
+                InputContent.fromJson(Map<String, dynamic>.from(item as Map)))
             .toList(),
       ),
     );
   }
   throw AGUIValidationError(
-    message: 'User message content must be a string or a list of content parts.',
+    message:
+        'User message content must be a string or a list of content parts.',
     field: 'content',
     value: content,
     json: json,
@@ -548,6 +689,8 @@ final class DeveloperMessage extends Message {
     required this.content,
     super.name,
     super.encryptedValue,
+    super.metadata,
+    super.subagentRunId,
   }) : super(role: MessageRole.developer);
 
   factory DeveloperMessage.fromJson(Map<String, dynamic> json) {
@@ -556,6 +699,9 @@ final class DeveloperMessage extends Message {
       content: JsonDecoder.requireField<String>(json, 'content'),
       name: JsonDecoder.optionalField<String>(json, 'name'),
       encryptedValue: JsonDecoder.optionalField<String>(json, 'encryptedValue'),
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
+      subagentRunId: JsonDecoder.optionalField<String>(json, 'subagentRunId'),
     );
   }
 
@@ -571,6 +717,8 @@ final class DeveloperMessage extends Message {
       content: content ?? this.content,
       name: name ?? this.name,
       encryptedValue: encryptedValue ?? this.encryptedValue,
+      metadata: this.metadata,
+      subagentRunId: this.subagentRunId,
     );
   }
 }
@@ -584,6 +732,8 @@ final class SystemMessage extends Message {
     required this.content,
     super.name,
     super.encryptedValue,
+    super.metadata,
+    super.subagentRunId,
   }) : super(role: MessageRole.system);
 
   factory SystemMessage.fromJson(Map<String, dynamic> json) {
@@ -592,6 +742,9 @@ final class SystemMessage extends Message {
       content: JsonDecoder.requireField<String>(json, 'content'),
       name: JsonDecoder.optionalField<String>(json, 'name'),
       encryptedValue: JsonDecoder.optionalField<String>(json, 'encryptedValue'),
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
+      subagentRunId: JsonDecoder.optionalField<String>(json, 'subagentRunId'),
     );
   }
 
@@ -607,6 +760,8 @@ final class SystemMessage extends Message {
       content: content ?? this.content,
       name: name ?? this.name,
       encryptedValue: encryptedValue ?? this.encryptedValue,
+      metadata: this.metadata,
+      subagentRunId: this.subagentRunId,
     );
   }
 }
@@ -621,12 +776,14 @@ final class AssistantMessage extends Message {
     this.content,
     super.name,
     super.encryptedValue,
+    super.metadata,
+    super.subagentRunId,
     this.toolCalls,
   }) : super(role: MessageRole.assistant);
 
   factory AssistantMessage.fromJson(Map<String, dynamic> json) {
-    final toolCalls =
-        JsonDecoder.optionalListField<Map<String, dynamic>>(json, 'toolCalls') ??
+    final toolCalls = JsonDecoder.optionalListField<Map<String, dynamic>>(
+            json, 'toolCalls') ??
         JsonDecoder.optionalListField<Map<String, dynamic>>(json, 'tool_calls');
 
     return AssistantMessage(
@@ -634,15 +791,19 @@ final class AssistantMessage extends Message {
       content: JsonDecoder.optionalField<String>(json, 'content'),
       name: JsonDecoder.optionalField<String>(json, 'name'),
       encryptedValue: JsonDecoder.optionalField<String>(json, 'encryptedValue'),
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
+      subagentRunId: JsonDecoder.optionalField<String>(json, 'subagentRunId'),
       toolCalls: toolCalls?.map((item) => ToolCall.fromJson(item)).toList(),
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-    ...super.toJson(),
-    if (toolCalls != null) 'toolCalls': toolCalls!.map((item) => item.toJson()).toList(),
-  };
+        ...super.toJson(),
+        if (toolCalls != null)
+          'toolCalls': toolCalls!.map((item) => item.toJson()).toList(),
+      };
 
   @override
   AssistantMessage copyWith({
@@ -650,6 +811,8 @@ final class AssistantMessage extends Message {
     String? content,
     String? name,
     String? encryptedValue,
+    Map<String, dynamic>? metadata,
+    String? subagentRunId,
     List<ToolCall>? toolCalls,
   }) {
     return AssistantMessage(
@@ -657,6 +820,8 @@ final class AssistantMessage extends Message {
       content: content ?? this.content,
       name: name ?? this.name,
       encryptedValue: encryptedValue ?? this.encryptedValue,
+      metadata: metadata ?? this.metadata,
+      subagentRunId: subagentRunId ?? this.subagentRunId,
       toolCalls: toolCalls ?? this.toolCalls,
     );
   }
@@ -673,8 +838,10 @@ final class UserMessage extends Message {
     required Object content,
     super.name,
     super.encryptedValue,
-  }) : _content = UserMessageContent.fromValue(content),
-       super(role: MessageRole.user);
+    super.metadata,
+    super.subagentRunId,
+  })  : _content = UserMessageContent.fromValue(content),
+        super(role: MessageRole.user);
 
   factory UserMessage.fromJson(Map<String, dynamic> json) {
     return UserMessage(
@@ -682,6 +849,9 @@ final class UserMessage extends Message {
       content: _parseUserContent(json),
       name: JsonDecoder.optionalField<String>(json, 'name'),
       encryptedValue: JsonDecoder.optionalField<String>(json, 'encryptedValue'),
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
+      subagentRunId: JsonDecoder.optionalField<String>(json, 'subagentRunId'),
     );
   }
 
@@ -705,23 +875,33 @@ final class UserMessage extends Message {
       content: content ?? this.content,
       name: name ?? this.name,
       encryptedValue: encryptedValue ?? this.encryptedValue,
+      metadata: this.metadata,
+      subagentRunId: this.subagentRunId,
     );
   }
 }
 
 final class ToolMessage extends Message {
-  @override
-  final String content;
   final String toolCallId;
   final String? error;
 
   const ToolMessage({
     required super.id,
-    required this.content,
+    required super.content,
     required this.toolCallId,
     this.error,
     super.encryptedValue,
+    super.metadata,
+    super.subagentRunId,
   }) : super(role: MessageRole.tool);
+
+  /// The text form of [content], or the empty string when the tool returned
+  /// content parts instead.
+  String get textContent => content is String ? content as String : '';
+
+  /// The multimodal form of [content], or `null` when the tool returned text.
+  List<InputContent>? get contentParts =>
+      content is List ? List<InputContent>.from(content as List) : null;
 
   factory ToolMessage.fromJson(Map<String, dynamic> json) {
     final toolCallId = JsonDecoder.optionalField<String>(json, 'toolCallId') ??
@@ -737,24 +917,27 @@ final class ToolMessage extends Message {
 
     return ToolMessage(
       id: JsonDecoder.requireField<String>(json, 'id'),
-      content: JsonDecoder.requireField<String>(json, 'content'),
+      content: parseContentValue(json, 'content'),
       toolCallId: toolCallId,
       error: JsonDecoder.optionalField<String>(json, 'error'),
       encryptedValue: JsonDecoder.optionalField<String>(json, 'encryptedValue'),
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
+      subagentRunId: JsonDecoder.optionalField<String>(json, 'subagentRunId'),
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-    ...super.toJson(),
-    'toolCallId': toolCallId,
-    if (error != null) 'error': error,
-  };
+        ...super.toJson(),
+        'toolCallId': toolCallId,
+        if (error != null) 'error': error,
+      };
 
   @override
   ToolMessage copyWith({
     String? id,
-    String? content,
+    Object? content,
     String? toolCallId,
     String? error,
     String? encryptedValue,
@@ -765,6 +948,8 @@ final class ToolMessage extends Message {
       toolCallId: toolCallId ?? this.toolCallId,
       error: error ?? this.error,
       encryptedValue: encryptedValue ?? this.encryptedValue,
+      metadata: this.metadata,
+      subagentRunId: this.subagentRunId,
     );
   }
 }
@@ -778,6 +963,8 @@ final class ActivityMessage extends Message {
     required super.id,
     required this.activityType,
     required this.content,
+    super.metadata,
+    super.subagentRunId,
   }) : super(role: MessageRole.activity);
 
   factory ActivityMessage.fromJson(Map<String, dynamic> json) {
@@ -787,14 +974,17 @@ final class ActivityMessage extends Message {
       content: Map<String, dynamic>.from(
         JsonDecoder.requireField<Map<String, dynamic>>(json, 'content'),
       ),
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
+      subagentRunId: JsonDecoder.optionalField<String>(json, 'subagentRunId'),
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-    ...super.toJson(),
-    'activityType': activityType,
-  };
+        ...super.toJson(),
+        'activityType': activityType,
+      };
 
   @override
   ActivityMessage copyWith({
@@ -806,6 +996,8 @@ final class ActivityMessage extends Message {
       id: id ?? this.id,
       activityType: activityType ?? this.activityType,
       content: content ?? this.content,
+      metadata: this.metadata,
+      subagentRunId: this.subagentRunId,
     );
   }
 }
@@ -818,6 +1010,8 @@ final class ReasoningMessage extends Message {
     required super.id,
     required this.content,
     super.encryptedValue,
+    super.metadata,
+    super.subagentRunId,
   }) : super(role: MessageRole.reasoning);
 
   factory ReasoningMessage.fromJson(Map<String, dynamic> json) {
@@ -825,6 +1019,9 @@ final class ReasoningMessage extends Message {
       id: JsonDecoder.requireField<String>(json, 'id'),
       content: JsonDecoder.requireField<String>(json, 'content'),
       encryptedValue: JsonDecoder.optionalField<String>(json, 'encryptedValue'),
+      metadata:
+          JsonDecoder.optionalField<Map<String, dynamic>>(json, 'metadata'),
+      subagentRunId: JsonDecoder.optionalField<String>(json, 'subagentRunId'),
     );
   }
 
@@ -838,6 +1035,8 @@ final class ReasoningMessage extends Message {
       id: id ?? this.id,
       content: content ?? this.content,
       encryptedValue: encryptedValue ?? this.encryptedValue,
+      metadata: this.metadata,
+      subagentRunId: this.subagentRunId,
     );
   }
 }

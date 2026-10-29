@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:http/http.dart' as http;
 import 'package:test/test.dart';
 
 import 'package:ag_ui/src/client/client.dart';
 import 'package:ag_ui/src/client/config.dart';
 import 'package:ag_ui/src/client/errors.dart';
-import 'package:ag_ui/src/types/types.dart';
 import 'package:ag_ui/src/events/events.dart';
+import 'package:ag_ui/src/proto/proto.dart';
 import 'package:ag_ui/src/sse/backoff_strategy.dart';
+import 'package:ag_ui/src/types/types.dart';
 
 // Custom mock client that supports streaming responses
 class MockStreamingClient extends http.BaseClient {
@@ -59,7 +62,7 @@ void main() {
           if (request is http.Request) {
             final body = json.decode(request.body) as Map<String, dynamic>;
             expect(body['messages'], isA<List>());
-            expect(body['config']['temperature'], equals(0.7));
+            expect(body['messages'], hasLength(1));
           }
           
           return http.StreamedResponse(
@@ -84,7 +87,6 @@ void main() {
           'test_endpoint',
           SimpleRunAgentInput(
             messages: [UserMessage(id: 'msg1', content: 'Hello')],
-            config: {'temperature': 0.7},
           ),
         ).toList();
 
@@ -105,6 +107,42 @@ void main() {
       // Note: SSE protocol does not support retry on HTTP errors (4xx/5xx)
       // This is a protocol limitation, not a bug. SSE can only retry on
       // network failures after a successful connection is established.
+
+      test('parses a protobuf response by its content type', () async {
+        final body = BytesBuilder()
+          ..add(encodeProtoFrame(
+            const RunStartedEvent(threadId: 'thread-1', runId: 'run-1'),
+          ))
+          ..add(encodeProtoFrame(
+            const TextMessageContentEvent(messageId: 'msg1', delta: 'Hello!'),
+          ));
+
+        mockHttpClient = MockStreamingClient((request) async {
+          return http.StreamedResponse(
+            Stream.value(body.takeBytes()),
+            200,
+            headers: {'content-type': agUiMediaType},
+          );
+        });
+
+        client = AgUiClient(
+          config: AgUiClientConfig(baseUrl: 'https://api.example.com'),
+          httpClient: mockHttpClient,
+        );
+
+        final events = await client.runAgent(
+          'test_endpoint',
+          SimpleRunAgentInput(
+            messages: [UserMessage(id: 'msg1', content: 'Hello')],
+          ),
+        ).toList();
+
+        expect(events.whereType<RunStartedEvent>().single.threadId, 'thread-1');
+        expect(
+          events.whereType<TextMessageContentEvent>().single.delta,
+          'Hello!',
+        );
+      });
 
       test('throws exception after max retries', () async {
         mockHttpClient = MockStreamingClient((request) async {
